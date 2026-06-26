@@ -112,3 +112,7 @@ test/postman/conversation2.txt
 # Course grading / grouping deliverables (not project code)
 docs/项目评分报告.docx
 docs/团队分工表.docx
+docs/团队分工表.md
+docs/提交文件清单.md
+docs/待填写项清单.md
+docs/gen_score_report.py
