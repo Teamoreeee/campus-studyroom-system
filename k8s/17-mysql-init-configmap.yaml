@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: campus-mysql-init
+  namespace: campus-studyroom
+data:
+  init.sql: |
+    -- campus_studyroom 数据库会在挂载时自动创建，这里放置额外的初始化脚本占位
+    -- 实际 schema 通过 mysql 镜像的 /docker-entrypoint-initdb.d 挂载 campus_studyroom.sql 注入
+    SELECT 1;

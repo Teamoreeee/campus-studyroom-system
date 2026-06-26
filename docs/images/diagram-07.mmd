@@ -1,0 +1,60 @@
+classDiagram
+    class RecommendationStrategy {
+        <<interface>>
+        +recommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +getStrategyName(): String
+        +getConfidenceScore(): double
+    }
+
+    class CollaborativeFilterStrategy {
+        -userSimilarityCalculator: UserSimilarityCalculator
+        -interactionMatrix: UserItemMatrix
+        +recommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +getStrategyName(): String
+        +getConfidenceScore(): double
+    }
+
+    class ContentBasedStrategy {
+        -userProfileBuilder: UserProfileBuilder
+        -itemFeatureExtractor: ItemFeatureExtractor
+        +recommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +getStrategyName(): String
+        +getConfidenceScore(): double
+    }
+
+    class HotTimeStrategy {
+        -statisticsService: StatisticsService
+        +recommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +getStrategyName(): String
+        +getConfidenceScore(): double
+    }
+
+    class LocationPreferenceStrategy {
+        -geoDistanceCalculator: GeoDistanceCalculator
+        +recommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +getStrategyName(): String
+        +getConfidenceScore(): double
+    }
+
+    class RecommendationContext {
+        -strategies: List~RecommendationStrategy~
+        -strategySelector: StrategySelector
+        +executeRecommend(userId: Long, context: RecommendContext): List~Recommendation~
+        +addStrategy(strategy: RecommendationStrategy): void
+        +removeStrategy(strategyName: String): void
+    }
+
+    class Recommendation {
+        +roomId: Long
+        +seatId: Long
+        +score: double
+        +reason: String
+        +strategySource: String
+    }
+
+    RecommendationStrategy <|.. CollaborativeFilterStrategy
+    RecommendationStrategy <|.. ContentBasedStrategy
+    RecommendationStrategy <|.. HotTimeStrategy
+    RecommendationStrategy <|.. LocationPreferenceStrategy
+    RecommendationContext --> RecommendationStrategy : uses
+    RecommendationContext ..> Recommendation : produces

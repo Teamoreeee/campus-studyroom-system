@@ -1,0 +1,382 @@
+@startuml logical-domain
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classFontName Microsoft YaHei
+skinparam defaultFontName Microsoft YaHei
+skinparam shadowing false
+skinparam linetype ortho
+
+title 校园自习室预约系统 - 领域模型类图（逻辑视图）
+
+' ============================================================
+' 设计说明：
+' 本图展示校园自习室预约系统的核心领域模型，采用领域驱动设计
+' （DDD）方法论，将系统划分为用户域、空间域、预约域、考勤域
+' 和智能域五大限界上下文。图中体现了三种核心设计模式的集成：
+'
+' 1. 工厂模式（NotificationFactory）：用于创建不同类型的通知
+'    对象（邮件、短信、站内信），将通知创建逻辑与业务逻辑解耦，
+'    使得新增通知类型时无需修改已有代码，符合开闭原则。
+'
+' 2. 策略模式（RecommendStrategy）：用于AI推荐引擎的策略选择，
+'    包含协同过滤、内容过滤和混合推荐三种策略，通过运行时动态
+'    切换策略实现推荐算法的灵活配置，满足不同场景下的推荐需求。
+'
+' 3. 观察者模式（ReservationEventListener）：用于预约事件的处理，
+'    当预约状态发生变化时，自动触发考勤监听、通知监听、违规监听
+'    和AI分析监听，实现业务解耦和事件驱动架构。
+'
+' 领域对象关系说明：
+' - User与Reservation为一对多关系，一个用户可多次预约
+' - StudyRoom与Seat为一对多关系，一个自习室包含多个座位
+' - Seat与Reservation为一对多关系，一个座位可被多次预约
+' - Reservation与Attendance为一对一关系，每次预约对应一次考勤
+' - User与Violation为一对多关系，用户可能存在多次违规记录
+' - Recommendation与User关联，为用户生成个性化推荐
+' - Anomaly与Attendance关联，记录考勤异常情况
+' ============================================================
+
+package "用户域 (User Context)" #E8F5E9 {
+    abstract class User {
+        - userId: Long
+        - username: String
+        - password: String
+        - realName: String
+        - studentNo: String
+        - email: String
+        - phone: String
+        - avatar: String
+        - status: Integer
+        - createTime: LocalDateTime
+        + login(): Token
+        + register(): User
+        + updateProfile(): void
+        + changePassword(): Boolean
+        + getRoles(): List<Role>
+    }
+
+    class Role {
+        - roleId: Long
+        - roleName: String
+        - roleKey: String
+        - description: String
+        - status: Integer
+        + getPermissions(): List<Permission>
+        + assignTo(user: User): void
+    }
+
+    class UserRole {
+        - id: Long
+        - userId: Long
+        - roleId: Long
+    }
+
+    User "1" -- "n" UserRole
+    Role "1" -- "n" UserRole
+}
+
+package "空间域 (Space Context)" #E3F2FD {
+    class StudyRoom {
+        - roomId: Long
+        - roomName: String
+        - building: String
+        - floor: Integer
+        - capacity: Integer
+        - facilities: String
+        - openTime: LocalTime
+        - closeTime: LocalTime
+        - status: Integer
+        + getAvailableSeats(): List<Seat>
+        + getSeatCount(): Integer
+        + updateStatus(): void
+        + getTimeSlots(): List<TimeSlot>
+    }
+
+    class Seat {
+        - seatId: Long
+        - roomId: Long
+        - seatNo: String
+        - seatType: SeatType
+        - position: String
+        - hasPower: Boolean
+        - status: Integer
+        + isAvailable(): Boolean
+        + occupy(): void
+        + release(): void
+    }
+
+    class TimeSlot {
+        - slotId: Long
+        - roomId: Long
+        - startTime: LocalTime
+        - endTime: LocalTime
+        - maxReservations: Integer
+        - currentReservations: Integer
+        + isAvailable(): Boolean
+        + incrementReservation(): void
+        + decrementReservation(): void
+    }
+
+    enum SeatType {
+        NORMAL
+        WINDOW
+        CORNER
+        DISABLED
+    }
+
+    StudyRoom "1" -- "n" Seat
+    StudyRoom "1" -- "n" TimeSlot
+    Seat --> SeatType
+}
+
+package "预约域 (Reservation Context)" #FFF3E0 {
+    class Reservation {
+        - reservationId: Long
+        - userId: Long
+        - seatId: Long
+        - roomId: Long
+        - slotId: Long
+        - reserveDate: LocalDate
+        - startTime: LocalTime
+        - endTime: LocalTime
+        - status: ReservationStatus
+        - createTime: LocalDateTime
+        + confirm(): void
+        + cancel(): void
+        + checkIn(): void
+        + checkOut(): void
+        + isExpired(): Boolean
+    }
+
+    enum ReservationStatus {
+        PENDING
+        CONFIRMED
+        CANCELLED
+        CHECKED_IN
+        COMPLETED
+        EXPIRED
+        VIOLATED
+    }
+
+    Reservation --> ReservationStatus
+}
+
+package "考勤域 (Attendance Context)" #F3E5F5 {
+    class Attendance {
+        - attendanceId: Long
+        - reservationId: Long
+        - userId: Long
+        - checkInTime: LocalDateTime
+        - checkOutTime: LocalDateTime
+        - duration: Integer
+        - status: AttendanceStatus
+        + calculateDuration(): Integer
+        + isLate(): Boolean
+        + isEarlyLeave(): Boolean
+    }
+
+    class Violation {
+        - violationId: Long
+        - userId: Long
+        - reservationId: Long
+        - type: ViolationType
+        - description: String
+        - penaltyDays: Integer
+        - createTime: LocalDateTime
+        + apply(): void
+        + appeal(): void
+    }
+
+    enum AttendanceStatus {
+        NORMAL
+        LATE
+        EARLY_LEAVE
+        ABSENT
+    }
+
+    enum ViolationType {
+        NO_SHOW
+        LATE_CHECK_IN
+        EARLY_LEAVE
+        DAMAGE
+    }
+
+    Attendance --> AttendanceStatus
+    Violation --> ViolationType
+    Reservation "1" -- "1" Attendance
+}
+
+package "智能域 (AI Context)" #FCE4EC {
+    class Recommendation {
+        - recommendationId: Long
+        - userId: Long
+        - roomId: Long
+        - seatId: Long
+        - score: Double
+        - reason: String
+        - strategy: String
+        - createTime: LocalDateTime
+        + accept(): void
+        + reject(): void
+    }
+
+    class Anomaly {
+        - anomalyId: Long
+        - attendanceId: Long
+        - userId: Long
+        - type: AnomalyType
+        - description: String
+        - confidence: Double
+        - handled: Boolean
+        + handle(): void
+        + ignore(): void
+    }
+
+    enum AnomalyType {
+        FREQUENT_NO_SHOW
+        SUSPICIOUS_PATTERN
+        ABNORMAL_DURATION
+        PROXY_CHECK_IN
+    }
+
+    Recommendation --> Anomaly
+    Attendance "1" -- "0..1" Anomaly
+}
+
+' 设计模式标注
+package "设计模式集成" #FFFDE7 {
+
+    package "工厂模式" #FFF9C4 {
+        abstract class NotificationFactory {
+            + createNotification(type): Notification
+        }
+        class EmailNotification {
+            - smtpServer: String
+            + send(): void
+        }
+        class SmsNotification {
+            - smsProvider: String
+            + send(): void
+        }
+        class InAppNotification {
+            - webSocketServer: String
+            + send(): void
+        }
+        NotificationFactory <|-- EmailNotification
+        NotificationFactory <|-- SmsNotification
+        NotificationFactory <|-- InAppNotification
+    }
+
+    package "策略模式" #FFF9C4 {
+        interface RecommendStrategy {
+            + recommend(userId, context): List<Recommendation>
+            + getStrategyName(): String
+        }
+        class CollaborativeFilterStrategy {
+            - similarityThreshold: Double
+            + recommend(): List<Recommendation>
+            + getStrategyName(): String
+        }
+        class ContentFilterStrategy {
+            - featureWeights: Map
+            + recommend(): List<Recommendation>
+            + getStrategyName(): String
+        }
+        class HybridStrategy {
+            - collaborativeWeight: Double
+            - contentWeight: Double
+            + recommend(): List<Recommendation>
+            + getStrategyName(): String
+        }
+        RecommendStrategy <|.. CollaborativeFilterStrategy
+        RecommendStrategy <|.. ContentFilterStrategy
+        RecommendStrategy <|.. HybridStrategy
+    }
+
+    package "观察者模式" #FFF9C4 {
+        class ReservationEventPublisher {
+            - listeners: List<ReservationEventListener>
+            + publishEvent(event): void
+            + addListener(listener): void
+            + removeListener(listener): void
+        }
+        interface ReservationEventListener {
+            + onReservationCreated(event): void
+            + onReservationCancelled(event): void
+            + onReservationCompleted(event): void
+        }
+        class AttendanceListener {
+            + onReservationCreated(event): void
+            + onReservationCancelled(event): void
+            + onReservationCompleted(event): void
+        }
+        class NotificationListener {
+            + onReservationCreated(event): void
+            + onReservationCancelled(event): void
+            + onReservationCompleted(event): void
+        }
+        class ViolationListener {
+            + onReservationCreated(event): void
+            + onReservationCancelled(event): void
+            + onReservationCompleted(event): void
+        }
+        class AIAnalysisListener {
+            + onReservationCreated(event): void
+            + onReservationCancelled(event): void
+            + onReservationCompleted(event): void
+        }
+        ReservationEventListener <|.. AttendanceListener
+        ReservationEventListener <|.. NotificationListener
+        ReservationEventListener <|.. ViolationListener
+        ReservationEventListener <|.. AIAnalysisListener
+        ReservationEventPublisher --> ReservationEventListener
+    }
+}
+
+' 领域对象核心关系
+User "1" -- "n" Reservation : 发起 >
+User "1" -- "n" Violation : 产生 >
+User "1" -- "n" Recommendation : 接收 >
+Seat "1" -- "n" Reservation : 被预约 >
+StudyRoom "1" -- "n" Reservation : 包含 >
+
+' 设计模式与领域对象关联
+Reservation ..> ReservationEventPublisher : 触发事件
+NotificationFactory ..> Reservation : 创建通知
+RecommendStrategy ..> Recommendation : 生成推荐
+Anomaly ..> Violation : 可能触发 >
+
+note right of User
+  用户是系统的核心实体，
+  关联预约、违规和推荐
+  等多个领域对象
+end note
+
+note right of Reservation
+  预约是系统核心业务，
+  连接用户、座位、考勤
+  并触发观察者事件
+end note
+
+note bottom of ReservationEventPublisher
+  观察者模式核心：
+  预约状态变更自动通知
+  考勤、通知、违规、AI
+  四个监听器
+end note
+
+note bottom of NotificationFactory
+  工厂模式核心：
+  根据通知类型动态创建
+  邮件/短信/站内信通知
+end note
+
+note bottom of RecommendStrategy
+  策略模式核心：
+  运行时动态切换
+  协同/内容/混合推荐
+end note
+
+@enduml

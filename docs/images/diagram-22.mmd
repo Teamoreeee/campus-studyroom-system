@@ -1,0 +1,64 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户/浏览器
+    participant F as Vue3前端
+    participant N as Nginx
+    participant G as Gateway<br/>(8000)
+    participant A as Auth Service<br/>(8001)
+    participant R as Room Service<br/>(8003)
+    participant V as Reservation Service<br/>(8004)
+    participant My as MySQL
+    participant Re as Redis
+
+    U->>F: 1. 访问系统首页
+    F->>N: 2. GET /
+    N-->>F: 3. 返回index.html
+    F->>F: 4. 加载Vue3应用
+
+    U->>F: 5. 输入账号密码登录
+    F->>N: 6. POST /api/auth/login
+    N->>G: 7. 转发至Gateway
+    G->>A: 8. 路由至Auth Service
+    A->>My: 9. 查询用户信息
+    My-->>A: 10. 返回用户记录
+    A->>A: 11. BCrypt密码校验
+    A->>A: 12. 生成JWT Token对
+    A-->>G: 13. 返回登录成功+Token
+    G-->>N: 14. 返回响应
+    N-->>F: 15. 返回200+JWT
+    F->>F: 16. 存储Token至localStorage
+
+    U->>F: 17. 浏览自习室列表
+    F->>N: 18. GET /api/room/list<br/>Header: Bearer Token
+    N->>G: 19. 转发至Gateway
+    G->>G: 20. JWT校验与解析
+    G->>R: 21. 路由至Room Service
+    R->>Re: 22. 查询缓存
+    alt 缓存命中
+        Re-->>R: 23a. 返回缓存数据
+    else 缓存未命中
+        R->>My: 23b. 查询数据库
+        My-->>R: 24b. 返回数据
+        R->>Re: 25b. 写入缓存
+    end
+    R-->>G: 26. 返回自习室列表
+    G-->>N: 27. 返回响应
+    N-->>F: 28. 返回200+数据
+    F->>F: 29. 渲染自习室卡片
+
+    U->>F: 30. 选择座位并创建预约
+    F->>N: 31. POST /api/reservation/create<br/>Header: Bearer Token
+    N->>G: 32. 转发至Gateway
+    G->>G: 33. JWT校验
+    G->>V: 34. 路由至Reservation Service
+    V->>Re: 35. 获取分布式锁<br/>(seat:{roomId}:{seatId}:{date})
+    V->>My: 36. 查询时段冲突
+    My-->>V: 37. 无冲突
+    V->>My: 38. 插入预约记录
+    My-->>V: 39. 返回预约ID
+    V->>Re: 40. 释放分布式锁
+    V->>Re: 41. 更新座位缓存状态
+    V-->>G: 42. 返回创建成功
+    G-->>N: 43. 返回响应
+    N-->>F: 44. 返回200+预约详情
+    F->>F: 45. 跳转至我的预约页面

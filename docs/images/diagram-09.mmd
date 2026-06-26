@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber
+    actor Student as 学生用户
+    participant FE as 前端 (Vue3)
+    participant Nginx as Nginx
+    participant GW as Gateway<br/>(8000)
+    participant Nacos as Nacos<br/>(8848)
+    participant Res as campus-reservation<br/>(8004)
+    participant Redis as Redis<br/>(6379)
+    participant MySQL as MySQL<br/>(3306)
+    participant Event as EventPublisher
+    participant Att as campus-attendance<br/>(8005)
+
+    Student->>FE: 选择座位、时间段，点击"提交预约"
+    FE->>FE: 校验表单数据（日期、时段、座位号）
+    FE->>Nginx: POST /api/reservation/reservations<br/>Authorization: Bearer {accessToken}
+    Nginx->>GW: 转发请求至 Gateway
+    GW->>GW: 解析 Authorization 头部，提取 JWT Token
+    GW->>GW: 验证 Token 签名和有效期
+    alt Token 无效或过期
+        GW-->>FE: 返回 401 Unauthorized
+        FE-->>Student: 提示登录过期，跳转登录页
+    else Token 有效
+        GW->>Nacos: 查询 campus-reservation 服务实例列表
+        Nacos-->>GW: 返回可用实例地址列表
+        GW->>GW: 通过 LoadBalancer 选择目标实例
+        GW->>Res: 转发请求至 reservation 服务实例
+        Res->>Res: 解析请求参数，创建 ReservationDTO
+        Res->>Redis: 尝试获取分布式锁<br/>SET seat:{seatId}:slot:{slotId} NX EX 10
+        alt 获取锁失败（并发冲突）
+            Redis-->>Res: 锁已存在
+            Res-->>GW: 返回 409 Conflict（"该座位已被预约"）
+            GW-->>FE: 返回 409
+            FE-->>Student: 提示"该座位已被他人预约，请重新选择"
+        else 获取锁成功
+            Redis-->>Res: 锁获取成功
+            Res->>MySQL: 查询 reservation 表唯一索引<br/>验证时间冲突
+            MySQL-->>Res: 无冲突记录
+            Res->>MySQL: 插入预约记录（INSERT）
+            MySQL-->>Res: 返回 reservationId
+            Res->>Redis: 释放分布式锁<br/>DEL seat:{seatId}:slot:{slotId}
+            Res->>Redis: 更新座位缓存状态<br/>HSET seat:availability {seatId} "reserved"
+            Res->>Redis: 使自习室列表缓存失效<br/>DEL room:list
+            Res->>Event: 发布 ReservationCreatedEvent
+            Event->>Att: 异步通知 attendance 服务
+            Att->>MySQL: 预创建考勤记录
+            Res-->>GW: 返回 200 OK + ReservationVO
+            GW-->>FE: 返回 200 + 响应体
+            FE-->>Student: 显示"预约成功"，展示预约详情和二维码
+        end
+    end

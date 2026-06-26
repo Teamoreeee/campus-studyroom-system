@@ -1,0 +1,12 @@
+NAME                                  READY   STATUS    RESTARTS   AGE
+campus-ai-7b86b58ff6-hg4qn            1/1     Running   0          9m4s
+campus-attendance-85445d648-hn7dk     1/1     Running   0          9m5s
+campus-auth-84fc9597c9-cz8ph          1/1     Running   0          9m7s
+campus-frontend-76b9f89dbc-x9vzg      1/1     Running   0          9m3s
+campus-gateway-7875dfdfdb-dqb92       1/1     Running   0          9m8s
+campus-mysql-0                        1/1     Running   0          9m47s
+campus-nacos-88ddb5bf4-lmncb          1/1     Running   0          9m46s
+campus-redis-575dccddd8-9ssr9         1/1     Running   0          9m47s
+campus-reservation-688848d546-9bccs   1/1     Running   0          9m6s
+campus-room-598f85c98-86xqj           1/1     Running   0          9m6s
+campus-user-56f7bd7b59-5cn9z          1/1     Running   0          9m7s

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campus-user
+  namespace: campus-studyroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campus-user
+  template:
+    metadata:
+      labels:
+        app: campus-user
+    spec:
+      containers:
+        - name: campus-user
+          image: campus-studyroom/campus-user:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: campus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: campus-user
+  namespace: campus-studyroom
+spec:
+  selector:
+    app: campus-user
+  ports:
+    - port: 8002
+      targetPort: 8002

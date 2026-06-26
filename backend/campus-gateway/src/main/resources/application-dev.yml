@@ -1,0 +1,13 @@
+# Development config
+spring:
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false
+  config:
+    import: "optional:nacos:"
+
+gateway:
+  direct: true

@@ -1,0 +1,202 @@
+@startuml 前后端分离架构图
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 12
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam nodesep 60
+skinparam ranksep 80
+
+title 校园自习室预约系统 - 前后端分离架构图
+
+' ============================================================
+' 设计说明：
+' 本图展示校园自习室预约系统的前后端分离架构设计。系统采用
+' 典型的B/S架构模式，前端与后端通过RESTful API进行通信，
+' 实现了完全的解耦与独立部署。前端基于Vue3生态构建单页面
+' 应用（SPA），使用Pinia进行状态管理，ElementPlus提供UI
+' 组件库，Axios封装HTTP请求。后端采用Spring Cloud微服务
+' 体系，通过API网关统一暴露接口，实现请求路由、负载均衡、
+' 认证鉴权等横切关注点的集中处理。
+'
+' 前后端分离的核心优势在于：第一，前端可独立开发、测试和
+' 部署，不影响后端服务的迭代节奏；第二，前端静态资源可
+' 通过CDN加速分发，显著提升首屏加载性能；第三，后端服务
+' 以纯API形式提供数据支撑，可同时服务于Web端、移动端及
+' 第三方对接等多种客户端场景；第四，前后端团队可并行开发，
+' 通过API契约（Swagger/OpenAPI）进行协作约定，降低沟通
+' 成本并提升交付效率。
+'
+' 在认证流程方面，系统采用JWT（JSON Web Token）无状态认证
+' 机制。用户登录时由campus-auth服务签发AccessToken与
+' RefreshToken，前端将AccessToken存储于内存或localStorage
+' 中，并在每次API请求的Authorization头中以Bearer方案携带
+' 该令牌。API网关内置JWT验证过滤器，对令牌的签名、有效期
+' 及权限声明进行校验，校验通过后将用户上下文注入请求头并
+' 转发至下游微服务。当AccessToken过期时，前端自动使用
+' RefreshToken向认证服务请求令牌续签，实现无感刷新，避免
+' 用户会话中断。此方案避免了服务端Session存储，天然支持
+' 水平扩展与跨域场景。
+'
+' 接口规范方面，系统遵循RESTful设计原则：使用HTTP动词
+' 语义化操作资源（GET查询、POST创建、PUT更新、DELETE删除），
+' URL采用名词复数形式表示资源集合，通过HTTP状态码传达
+' 操作结果（200成功、201创建、400参数错误、401未认证、
+' 403无权限、404资源不存在、500服务器错误）。所有接口在
+' 网关层统一添加CORS跨域头，支持前后端分离部署下的跨域
+' 请求。同时通过Swagger自动生成API文档，为前端开发提供
+' 实时、准确的接口契约。
+' ============================================================
+
+' --- 客户端层 ---
+package "客户端层" as client_layer #E3F2FD {
+    package "浏览器端 (SPA)" as browser #BBDEFB {
+        component [Vue3\n响应式框架] as vue3
+        component [Pinia\n状态管理] as pinia
+        component [ElementPlus\nUI组件库] as element
+        component [Axios\nHTTP客户端] as axios
+        component [Vue Router\n前端路由] as router
+    }
+    package "移动端适配" as mobile #BBDEFB {
+        component [响应式布局\n移动端适配] as responsive
+        component [PWA支持\n离线缓存] as pwa
+    }
+}
+
+' --- 静态资源层 ---
+package "静态资源层" as static_layer #FFF3E0 {
+    node "Nginx / CDN" as nginx {
+        component [静态文件托管\nHTML/CSS/JS] as static_files
+        component [Gzip压缩\n资源优化] as gzip
+        component [反向代理\n负载均衡] as proxy
+    }
+}
+
+' --- API网关层 ---
+package "API网关层" as gateway_layer #E8F5E9 {
+    node "campus-gateway" as gateway {
+        component [路由转发\nRoute Locator] as route
+        component [JWT认证过滤器\nAuth Filter] as jwt_filter
+        component [限流过滤器\nRate Limit Filter] as rate_filter
+        component [CORS跨域处理] as cors_filter
+        component [请求日志\nLogging Filter] as log_filter
+        component [Swagger聚合\nAPI文档] as swagger
+    }
+}
+
+' --- 微服务层 ---
+package "微服务层" as service_layer #F3E5F5 {
+    package "认证服务" as auth_pkg #E1BEE7 {
+        component [campus-auth\n认证授权] as auth
+    }
+    package "用户服务" as user_pkg #E1BEE7 {
+        component [campus-user\n用户管理] as user
+    }
+    package "自习室服务" as room_pkg #E1BEE7 {
+        component [campus-room\n自习室管理] as room
+    }
+    package "预约服务" as reservation_pkg #E1BEE7 {
+        component [campus-reservation\n预约管理] as reservation
+    }
+    package "签到服务" as attendance_pkg #E1BEE7 {
+        component [campus-attendance\n签到管理] as attendance
+    }
+    package "AI服务" as ai_pkg #E1BEE7 {
+        component [campus-ai\n智能服务] as ai
+    }
+}
+
+' --- 数据层 ---
+package "数据层" as data_layer #FFEBEE {
+    database "MySQL / 达梦8\n业务数据库" as mysql
+    database "Redis\n缓存数据库" as redis
+    node "MinIO / OSS\n文件存储" as oss
+}
+
+' --- JWT认证流程 ---
+package "JWT认证流程" as jwt_flow #FFF9C4 {
+    usecase "1.用户登录\n提交凭证" as uc1
+    usecase "2.Auth服务验证\n签发JWT" as uc2
+    usecase "3.前端存储Token\n(AccessToken+RefreshToken)" as uc3
+    usecase "4.请求携带Token\nAuthorization: Bearer xxx" as uc4
+    usecase "5.网关验证Token\n解析用户身份" as uc5
+    usecase "6.转发至微服务\n携带用户上下文" as uc6
+    usecase "7.Token过期\n自动续签" as uc7
+    uc1 --> uc2
+    uc2 --> uc3
+    uc3 --> uc4
+    uc4 --> uc5
+    uc5 --> uc6
+    uc6 --> uc7 : RefreshToken
+    uc7 --> uc3 : 更新Token
+}
+
+' --- 连接关系 ---
+vue3 --> pinia
+vue3 --> element
+vue3 --> router
+pinia --> axios
+vue3 --> responsive
+vue3 --> pwa
+
+axios --> proxy : HTTPS请求
+static_files --> gzip
+proxy --> route : 转发API请求
+
+route --> jwt_filter
+jwt_filter --> rate_filter
+rate_filter --> cors_filter
+cors_filter --> log_filter
+
+route --> auth : /api/auth/**
+route --> user : /api/user/**
+route --> room : /api/room/**
+route --> reservation : /api/reservation/**
+route --> attendance : /api/attendance/**
+route --> ai : /api/ai/**
+
+auth --> mysql
+auth --> redis : Token缓存
+user --> mysql
+user --> redis : 用户缓存
+room --> mysql
+room --> redis : 自习室缓存
+room --> oss : 图片存储
+reservation --> mysql
+reservation --> redis : 预约缓存
+attendance --> mysql
+attendance --> redis : 签到状态
+ai --> redis : 推荐缓存
+
+' --- 注释 ---
+note right of gateway_layer
+  **网关职责**
+  - 统一API入口
+  - JWT令牌验证
+  - 请求限流熔断
+  - 跨域CORS处理
+  - 请求日志记录
+  - API文档聚合
+end note
+
+note left of client_layer
+  **前端技术栈**
+  - Vue3 Composition API
+  - Pinia 状态管理
+  - ElementPlus UI组件
+  - Axios HTTP封装
+  - Vue Router 路由守卫
+end note
+
+note bottom of jwt_flow
+  **JWT认证要点**
+  - 无状态认证，服务端不存储Session
+  - AccessToken有效期2小时
+  - RefreshToken有效期7天
+  - Token采用RS256非对称签名
+  - 支持令牌黑名单机制(注销场景)
+end note
+
+@enduml

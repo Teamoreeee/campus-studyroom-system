@@ -1,0 +1,162 @@
+@startuml physical-view
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 12
+skinparam nodeStyle rectangle
+skinparam linetype ortho
+
+title 校园自习室预约系统 - 物理视图（云原生部署拓扑）
+
+' ============================================================
+' 设计说明：
+' 本图展示系统的云原生部署拓扑，包括 Kubernetes 集群内外的
+' 节点分布、网络流向和安全区域划分。
+'
+' 部署策略：
+' 1. 使用 Docker 容器化每个微服务和前端应用
+' 2. 使用 Kubernetes 进行编排和弹性伸缩
+' 3. 使用 Nacos 作为服务注册与配置中心
+' 4. 使用 MySQL + 达梦8 实现双数据库兼容
+' 5. 使用 Redis 作为缓存和会话存储
+' 6. 使用 Prometheus + Grafana 监控 metrics
+' 7. 使用 SkyWalking 进行全链路追踪
+' ============================================================
+
+node "外部用户" as ExternalUsers #E3F2FD
+
+package "DMZ 区（公网入口）" #FFF3E0 {
+    node "Nginx Ingress\n负载均衡 / SSL" as Ingress {
+        component "HTTPS 终止"
+        component "静态资源缓存"
+        component "限流"
+    }
+}
+
+package "Kubernetes 集群" #E8F5E9 {
+    namespace "campus-studyroom" {
+        package "应用层" #C8E6C9 {
+            node "Pod: campus-frontend\nVue3 SPA" as FrontendPod
+            node "Pod: campus-gateway\nSpring Cloud Gateway" as GatewayPod
+        }
+
+        package "业务服务层" #A5D6A7 {
+            node "Pod: campus-auth" as AuthPod
+            node "Pod: campus-user" as UserPod
+            node "Pod: campus-room" as RoomPod
+            node "Pod: campus-reservation" as ResPod
+            node "Pod: campus-attendance" as AttPod
+            node "Pod: campus-ai" as AIPod
+        }
+
+        package "中间件层" #FFF9C4 {
+            node "Pod: Nacos\n注册/配置中心" as NacosPod
+            node "Pod: Redis\n缓存" as RedisPod
+            node "Pod: RabbitMQ\n消息队列" as MQPod
+        }
+
+        package "可观测性" #FCE4EC {
+            node "Pod: Prometheus\n指标采集" as PromPod
+            node "Pod: Grafana\n可视化" as GrafanaPod
+            node "Pod: SkyWalking\n链路追踪" as SWPod
+            node "Pod: ELK\n日志聚合" as ELKPod
+        }
+    }
+}
+
+package "数据层（集群外/StatefulSet）" #FFEBEE {
+    database "MySQL 8.0\n主从集群" as MySQL
+    database "达梦 8\n国产化数据库" as Dameng
+}
+
+' 外部访问
+ExternalUsers --> Ingress : HTTPS
+Ingress --> FrontendPod : 静态资源
+Ingress --> GatewayPod : /api/**
+
+' 网关到服务
+GatewayPod --> AuthPod : /api/auth/**
+GatewayPod --> UserPod : /api/user/**
+GatewayPod --> RoomPod : /api/room/**
+GatewayPod --> ResPod : /api/reservation/**
+GatewayPod --> AttPod : /api/attendance/**
+GatewayPod --> AIPod : /api/ai/**
+
+' 服务注册与发现
+AuthPod --> NacosPod : 注册/发现
+UserPod --> NacosPod : 注册/发现
+RoomPod --> NacosPod : 注册/发现
+ResPod --> NacosPod : 注册/发现
+AttPod --> NacosPod : 注册/发现
+AIPod --> NacosPod : 注册/发现
+GatewayPod --> NacosPod : 服务发现
+
+' 数据访问
+AuthPod --> MySQL : JDBC
+UserPod --> MySQL : JDBC
+RoomPod --> MySQL : JDBC
+ResPod --> MySQL : JDBC
+AttPod --> MySQL : JDBC
+AIPod --> MySQL : JDBC
+
+AuthPod --> Dameng : JDBC（国产化）
+RoomPod --> Dameng : JDBC（国产化）
+
+' 缓存
+AuthPod --> RedisPod : Token缓存
+RoomPod --> RedisPod : 座位状态
+ResPod --> RedisPod : 预约缓存
+AttPod --> RedisPod : 考勤状态
+AIPod --> RedisPod : 推荐缓存
+
+' 消息队列
+ResPod --> MQPod : 预约事件
+AttPod --> MQPod : 考勤事件
+AIPod --> MQPod : 分析任务
+
+' 可观测性
+PromPod --> AuthPod : /actuator/prometheus
+PromPod --> UserPod : /actuator/prometheus
+PromPod --> RoomPod : /actuator/prometheus
+PromPod --> ResPod : /actuator/prometheus
+PromPod --> AttPod : /actuator/prometheus
+PromPod --> AIPod : /actuator/prometheus
+PromPod --> GatewayPod : /actuator/prometheus
+
+GrafanaPod --> PromPod : 数据源
+SWPod <-- AuthPod : SkyWalking Agent
+SWPod <-- ResPod : SkyWalking Agent
+ELKPod <-- GatewayPod : 日志收集
+
+note right of Ingress
+  **入口层**
+  - HTTPS 强制跳转
+  - 静态资源 CDN 加速
+  - DDoS 基础防护
+  - 请求限流
+end note
+
+note right of GatewayPod
+  **网关层**
+  - JWT 统一认证
+  - 路由转发
+  - 跨域处理
+  - 可集成 Sentinel 限流
+end note
+
+note bottom of MySQL
+  **数据层**
+  - MySQL 主从 + 读写分离
+  - 达梦8 国产化双写
+  - 定时备份
+end note
+
+note bottom of PromPod
+  **可观测性**
+  - Metrics: Prometheus + Grafana
+  - Tracing: SkyWalking
+  - Logging: ELK Stack
+end note
+
+@enduml

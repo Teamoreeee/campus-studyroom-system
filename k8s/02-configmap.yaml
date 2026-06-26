@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: campus-config
+  namespace: campus-studyroom
+data:
+  SPRING_PROFILES_ACTIVE: "docker"
+  MYSQL_HOST: "campus-mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_DB: "campus_studyroom"
+  MYSQL_USER: "root"
+  MYSQL_PASSWORD: "123456"
+  REDIS_HOST: "campus-redis"
+  REDIS_PORT: "6379"
+  NACOS_HOST: "campus-nacos"
+  NACOS_PORT: "8848"

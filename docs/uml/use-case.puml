@@ -1,0 +1,181 @@
+@startuml 校园自习室预约系统总用例图
+
+' ============================================================================
+' 设计说明：
+'
+' 本用例图描述了校园自习室预约系统的完整用例模型，涵盖三个核心角色
+' （学生、管理员、超级管理员）与系统各功能模块之间的交互关系。
+'
+' 【角色定义】
+' 1. 学生：系统的核心用户，主要进行自习室浏览、座位预约、考勤签到签退、
+'    违规查询、AI智能推荐与问答等操作。学生是系统服务的主要对象，其用例
+'    集中在预约流程的发起与个人状态管理上。
+' 2. 管理员：负责日常运营管理，包括自习室与座位的增删改查、预约统计与
+'    监控、考勤管理、违规处理，以及查看AI异常分析报告。管理员是运营层面
+'    的核心角色，保障系统正常运转。
+' 3. 超级管理员：拥有最高权限，负责用户与角色管理、系统全局配置、数据
+'    看板查看等。超级管理员关注系统层面的配置与全局数据，不参与日常运营
+'    细节。
+'
+' 【模块划分】
+' 系统按照业务领域划分为七大模块：
+' - 用户管理模块：处理用户注册、登录、信息维护、角色与权限管理
+' - 自习室管理模块：管理自习室信息、座位配置、开放时间等
+' - 预约管理模块：核心业务模块，处理预约创建、冲突检测、取消、统计
+' - 考勤管理模块：签到签退、考勤记录、超时检测
+' - 违规管理模块：违规记录、处罚执行、申诉处理
+' - AI智能模块：智能推荐、异常行为分析、RAG知识库客服
+' - 通知管理模块：预约确认、超时提醒、违规通知、系统公告
+'
+' 【用例关系说明】
+' - "预约座位"用例与"检查预约冲突"之间是include关系，预约必须经过冲突检测
+' - "预约座位"用例与"获取AI推荐"之间是extend关系，AI推荐为可选增强功能
+' - "超时未签到"会触发"记录违规"用例，体现跨模块的业务关联
+' - "AI异常分析"为管理员提供数据支撑，辅助违规审核决策
+'
+' 【设计原则】
+' 1. 单一职责：每个用例只描述一个完整的用户目标
+' 2. 模块内聚：用例按业务领域分组，降低耦合度
+' 3. 角色分离：三类角色权限清晰划分，避免越权
+' 4. 可扩展性：AI智能模块和通知模块可独立演进，不影响核心预约流程
+'
+' ============================================================================
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam fontsize 12
+skinparam packageBorderColor #336699
+skinparam packageBackgroundColor #F0F8FF
+skinparam usecaseBorderColor #2E8B57
+skinparam usecaseBackgroundColor #F5FFFA
+skinparam actorBorderColor #B22222
+skinparam actorBackgroundColor #FFF0F5
+
+' ========== 角色定义 ==========
+
+actor "学生" as student {
+}
+
+actor "管理员" as admin {
+}
+
+actor "超级管理员" as superadmin {
+}
+
+' ========== 用户管理模块 ==========
+
+rectangle "用户管理模块" as user_mod {
+    usecase "用户注册" as UC_UserReg
+    usecase "用户登录" as UC_UserLogin
+    usecase "个人信息管理" as UC_UserProfile
+    usecase "角色管理" as UC_RoleMgmt
+    usecase "权限分配" as UC_PermissionAssign
+}
+
+' ========== 自习室管理模块 ==========
+
+rectangle "自习室管理模块" as room_mod {
+    usecase "浏览自习室" as UC_BrowseRoom
+    usecase "搜索自习室" as UC_SearchRoom
+    usecase "管理自习室" as UC_ManageRoom
+    usecase "管理座位" as UC_ManageSeat
+    usecase "设置开放时间" as UC_SetOpenTime
+}
+
+' ========== 预约管理模块 ==========
+
+rectangle "预约管理模块" as reserve_mod {
+    usecase "预约座位" as UC_ReserveSeat
+    usecase "取消预约" as UC_CancelReserve
+    usecase "检查预约冲突" as UC_CheckConflict
+    usecase "查看预约统计" as UC_ReserveStats
+    usecase "预约记录查询" as UC_ReserveHistory
+}
+
+' ========== 考勤管理模块 ==========
+
+rectangle "考勤管理模块" as attend_mod {
+    usecase "签到" as UC_CheckIn
+    usecase "签退" as UC_CheckOut
+    usecase "查看考勤记录" as UC_ViewAttendance
+    usecase "管理考勤" as UC_ManageAttendance
+    usecase "超时检测" as UC_TimeoutDetect
+}
+
+' ========== 违规管理模块 ==========
+
+rectangle "violation_mod" as violation_mod_label {
+    rectangle "违规管理模块" as violation_mod {
+        usecase "查看违规记录" as UC_ViewViolation
+        usecase "管理违规" as UC_ManageViolation
+        usecase "违规处罚" as UC_ViolationPenalty
+        usecase "违规申诉" as UC_ViolationAppeal
+    }
+}
+
+' ========== AI智能模块 ==========
+
+rectangle "AI智能模块" as ai_mod {
+    usecase "获取AI推荐" as UC_AIRecommend
+    usecase "AI智能问答" as UC_AIQA
+    usecase "AI异常分析" as UC_AIAnomaly
+    usecase "RAG知识库查询" as UC_RAGQuery
+}
+
+' ========== 通知管理模块 ==========
+
+rectangle "通知管理模块" as notify_mod {
+    usecase "预约确认通知" as UC_ReserveNotify
+    usecase "超时提醒通知" as UC_TimeoutNotify
+    usecase "违规通知" as UC_ViolationNotify
+    usecase "系统公告" as UC_SystemAnnounce
+}
+
+' ========== 学生关联用例 ==========
+
+student --> UC_BrowseRoom
+student --> UC_SearchRoom
+student --> UC_ReserveSeat
+student --> UC_CancelReserve
+student --> UC_CheckIn
+student --> UC_CheckOut
+student --> UC_ViewAttendance
+student --> UC_ViewViolation
+student --> UC_AIRecommend
+student --> UC_AIQA
+student --> UC_ViolationAppeal
+
+' ========== 管理员关联用例 ==========
+
+admin --> UC_ManageRoom
+admin --> UC_ManageSeat
+admin --> UC_SetOpenTime
+admin --> UC_ReserveStats
+admin --> UC_ManageAttendance
+admin --> UC_AIAnomaly
+admin --> UC_ManageViolation
+admin --> UC_ViolationPenalty
+admin --> UC_ReserveHistory
+
+' ========== 超级管理员关联用例 ==========
+
+superadmin --> UC_UserProfile
+superadmin --> UC_RoleMgmt
+superadmin --> UC_PermissionAssign
+superadmin --> UC_SystemAnnounce
+
+' ========== 用例关系 ==========
+
+UC_ReserveSeat ..> UC_CheckConflict : <<include>>
+UC_ReserveSeat ..> UC_ReserveNotify : <<include>>
+UC_ReserveSeat ..> UC_AIRecommend : <<extend>>
+UC_TimeoutDetect ..> UC_CancelReserve : <<include>>
+UC_TimeoutDetect ..> UC_ViolationPenalty : <<extend>>
+UC_ViolationPenalty ..> UC_ViolationNotify : <<include>>
+UC_AIAnomaly ..> UC_ManageViolation : <<extend>>
+UC_AIQA ..> UC_RAGQuery : <<include>>
+UC_CheckIn ..> UC_TimeoutDetect : <<extend>>
+UC_CancelReserve ..> UC_ReserveNotify : <<include>>
+
+@enduml

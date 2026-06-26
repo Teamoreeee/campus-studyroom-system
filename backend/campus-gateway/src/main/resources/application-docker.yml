@@ -1,0 +1,21 @@
+spring:
+  cloud:
+    nacos:
+      discovery:
+        server-addr: campus-nacos:8848
+      config:
+        enabled: false
+  data:
+    redis:
+      host: campus-redis
+      port: 6379
+      database: 0
+
+logging:
+  level:
+    com.campus.gateway: info
+    org.springframework.cloud.gateway: info
+
+# Docker 环境下使用 Nacos 服务发现，走 lb:// 动态路由
+gateway:
+  direct: false

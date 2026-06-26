@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p .vscode)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\TEAM0RE\\OneDrive\\桌面\\软件架构技术\\campus-studyroom",
+      "c:\\Users\\TEAM0RE\\OneDrive\\桌面\\软件架构技术\\campus-studyroom\\.vscode"
+    ]
+  }
+}

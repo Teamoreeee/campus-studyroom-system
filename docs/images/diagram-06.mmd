@@ -1,0 +1,56 @@
+classDiagram
+    class NotificationFactory {
+        +createNotification(type: String): Notification
+    }
+
+    class Notification {
+        <<abstract>>
+        +send(message: Message, recipient: String): SendResult
+        +validate(): boolean
+    }
+
+    class EmailNotification {
+        -smtpConfig: SmtpConfig
+        +send(message: Message, recipient: String): SendResult
+        +validate(): boolean
+    }
+
+    class SmsNotification {
+        -smsProvider: SmsProvider
+        +send(message: Message, recipient: String): SendResult
+        +validate(): boolean
+    }
+
+    class InAppNotification {
+        -webSocketHandler: WebSocketHandler
+        +send(message: Message, recipient: String): SendResult
+        +validate(): boolean
+    }
+
+    class WechatNotification {
+        -mpService: WechatMpService
+        +send(message: Message, recipient: String): SendResult
+        +validate(): boolean
+    }
+
+    class Message {
+        +title: String
+        +content: String
+        +type: MessageType
+        +priority: Priority
+    }
+
+    class SendResult {
+        +success: boolean
+        +messageId: String
+        +errorCode: String
+        +timestamp: DateTime
+    }
+
+    NotificationFactory --> Notification : creates
+    Notification <|-- EmailNotification
+    Notification <|-- SmsNotification
+    Notification <|-- InAppNotification
+    Notification <|-- WechatNotification
+    Notification ..> Message : uses
+    Notification ..> SendResult : returns

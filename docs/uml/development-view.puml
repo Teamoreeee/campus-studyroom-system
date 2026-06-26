@@ -1,0 +1,231 @@
+@startuml development-view
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+title 校园自习室预约系统 - 开发视图（代码组织结构）
+
+' ============================================================
+' 设计说明：
+' 本图展示校园自习室预约系统的代码组织结构与模块划分。
+' 系统采用前后端分离、微服务化的分层架构，每个服务内部严格
+' 遵循四层架构：Controller→Service→Repository→Domain，
+' 并通过 Maven 多模块聚合工程进行依赖管理。
+'
+' 开发视图的核心目标：
+' 1. 支撑团队协作：每个服务由独立小团队负责，接口清晰
+' 2. 保证代码可维护性：统一分层，职责单一
+' 3. 便于持续集成：每个模块独立构建、独立部署
+' 4. 降低模块耦合：通过 Feign/HTTP 进行服务间调用
+' ============================================================
+
+package "根项目 campus-studyroom" #ECEFF1 {
+    component "pom.xml\n聚合工程" as rootPom
+
+    package "frontend\n前端工程" #E3F2FD {
+        component "Vue3 SPA" as spa
+        package "src" #BBDEFB {
+            component "views\n页面视图" as views
+            component "components\n公共组件" as components
+            component "api\n接口封装" as api
+            component "stores\nPinia状态" as stores
+            component "router\n路由配置" as router
+            component "utils\n工具函数" as utils
+            component "types\nTypeScript类型" as types
+        }
+        component "vite.config.ts" as vite
+        component "package.json" as pkg
+    }
+
+    package "backend\n后端工程" #E8F5E9 {
+        component "backend/pom.xml\n父POM" as backendPom
+
+        package "campus-gateway\n网关服务" #C8E6C9 {
+            component "CampusGatewayApplication" as gwApp
+            component "config\n路由/限流配置" as gwConfig
+        }
+
+        package "campus-auth\n认证服务" #C8E6C9 {
+            component "CampusAuthApplication" as authApp
+            package "com.campus.auth" #A5D6A7 {
+                component "controller\n控制层" as authCtrl
+                component "service\n业务层" as authSvc
+                component "mapper\n数据访问层" as authMapper
+                component "entity\n领域实体" as authEntity
+                component "dto\n数据传输对象" as authDto
+                component "utils\nJWT工具" as authUtils
+                component "common\n统一响应" as authCommon
+                component "config\n配置类" as authConfig
+            }
+        }
+
+        package "campus-user\n用户服务" #C8E6C9 {
+            component "CampusUserApplication" as userApp
+            package "com.campus.user" #A5D6A7 {
+                component "controller" as userCtrl
+                component "service" as userSvc
+                component "mapper" as userMapper
+                component "entity" as userEntity
+                component "dto" as userDto
+            }
+        }
+
+        package "campus-room\n自习室服务" #C8E6C9 {
+            component "CampusRoomApplication" as roomApp
+            package "com.campus.room" #A5D6A7 {
+                component "controller" as roomCtrl
+                component "service" as roomSvc
+                component "mapper" as roomMapper
+                component "entity" as roomEntity
+                component "dto" as roomDto
+            }
+        }
+
+        package "campus-reservation\n预约服务" #C8E6C9 {
+            component "CampusReservationApplication" as resApp
+            package "com.campus.reservation" #A5D6A7 {
+                component "controller" as resCtrl
+                component "service" as resSvc
+                component "mapper" as resMapper
+                component "entity" as resEntity
+                component "dto" as resDto
+            }
+        }
+
+        package "campus-attendance\n考勤服务" #C8E6C9 {
+            component "CampusAttendanceApplication" as attApp
+            package "com.campus.attendance" #A5D6A7 {
+                component "controller" as attCtrl
+                component "service" as attSvc
+                component "mapper" as attMapper
+                component "entity" as attEntity
+            }
+        }
+
+        package "campus-ai\nAI服务" #C8E6C9 {
+            component "CampusAiApplication" as aiApp
+            package "com.campus.ai" #A5D6A7 {
+                component "controller" as aiCtrl
+                component "service" as aiSvc
+                component "entity" as aiEntity
+            }
+        }
+    }
+
+    package "docs\n文档" #FFF3E0 {
+        component "UML图" as umlDocs
+        component "需求规格说明书" as reqDocs
+        component "部署文档" as deployDocs
+    }
+
+    package "test\n测试" #FCE4EC {
+        component "sql脚本\nMySQL/达梦" as sqlScripts
+    }
+}
+
+' 前端依赖关系
+spa --> views
+spa --> components
+spa --> api
+spa --> stores
+spa --> router
+spa --> utils
+api --> types
+stores --> api
+router --> views
+
+' 后端通用分层依赖
+authCtrl --> authSvc
+authSvc --> authMapper
+authSvc --> authEntity
+authMapper --> authEntity
+authCtrl --> authDto
+authSvc --> authDto
+authSvc --> authUtils
+authCtrl --> authCommon
+
+userCtrl --> userSvc
+userSvc --> userMapper
+userSvc --> userEntity
+userMapper --> userEntity
+
+roomCtrl --> roomSvc
+roomSvc --> roomMapper
+roomSvc --> roomEntity
+roomMapper --> roomEntity
+
+resCtrl --> resSvc
+resSvc --> resMapper
+resSvc --> resEntity
+resMapper --> resEntity
+
+attCtrl --> attSvc
+attSvc --> attMapper
+attSvc --> attEntity
+attMapper --> attEntity
+
+aiCtrl --> aiSvc
+aiSvc --> aiEntity
+
+' 服务间调用
+gwApp --> authApp : 路由 /api/auth/**
+gwApp --> userApp : 路由 /api/user/**
+gwApp --> roomApp : 路由 /api/room/**
+gwApp --> resApp : 路由 /api/reservation/**
+gwApp --> attApp : 路由 /api/attendance/**
+gwApp --> aiApp : 路由 /api/ai/**
+
+' Maven 聚合
+rootPom --> backendPom
+rootPom --> spa
+backendPom --> authApp
+backendPom --> userApp
+backendPom --> roomApp
+backendPom --> resApp
+backendPom --> attApp
+backendPom --> aiApp
+backendPom --> gwApp
+
+note right of authCtrl
+  **Controller 层职责**
+  - 接收 HTTP 请求
+  - 参数校验与转换
+  - 调用 Service
+  - 返回统一响应
+end note
+
+note right of authSvc
+  **Service 层职责**
+  - 业务逻辑编排
+  - 事务管理
+  - 服务间调用
+  - 异常处理
+end note
+
+note right of authMapper
+  **Mapper 层职责**
+  - 数据库 CRUD
+  - 复杂查询映射
+  - 依赖 MyBatis-Plus
+end note
+
+note bottom of authEntity
+  **Entity 层职责**
+  - 领域模型定义
+  - 数据库表映射
+  - 业务规则封装
+end note
+
+note bottom of backendPom
+  **多模块优势**
+  - 独立构建与部署
+  - 团队并行开发
+  - 服务边界清晰
+  - 降低变更影响范围
+end note
+
+@enduml

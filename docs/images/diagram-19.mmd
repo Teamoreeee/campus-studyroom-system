@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant C as AIController
+    participant R as RagService
+    participant K as KnowledgeBaseMapper
+    participant Z as ZhipuAiService
+    participant AI as 智谱AI GLM-4
+
+    U->>C: 发送问题消息
+    C->>R: retrieve(query, topK=3)
+    R->>K: selectActiveList()
+    K-->>R: 全部知识文档
+    R->>R: 关键词提取+TF-IDF打分
+    R-->>C: Top-3相关文档
+    C->>C: 拼接System Prompt
+    C->>Z: chat(systemPrompt, userMessage, history)
+    Z->>AI: HTTP POST /chat/completions
+    AI-->>Z: 生成回答
+    Z-->>C: 回答文本
+    C-->>U: 返回回答+引用来源

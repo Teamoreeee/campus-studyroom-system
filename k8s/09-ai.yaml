@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campus-ai
+  namespace: campus-studyroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campus-ai
+  template:
+    metadata:
+      labels:
+        app: campus-ai
+    spec:
+      containers:
+        - name: campus-ai
+          image: campus-studyroom/campus-ai:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8006
+          envFrom:
+            - configMapRef:
+                name: campus-config
+          env:
+            - name: ZHIPU_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zhipu-api-secret
+                  key: ZHIPU_API_KEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: campus-ai
+  namespace: campus-studyroom
+spec:
+  selector:
+    app: campus-ai
+  ports:
+    - port: 8006
+      targetPort: 8006

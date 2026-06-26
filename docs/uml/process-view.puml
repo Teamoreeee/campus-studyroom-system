@@ -1,0 +1,165 @@
+@startuml process-view
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 12
+skinparam sequenceArrowThickness 2
+skinparam sequenceParticipantBorderColor #666
+skinparam sequenceLifeLineBorderColor #999
+
+title 校园自习室预约系统 - 进程视图（核心业务流程时序图）
+
+' ============================================================
+' 设计说明：
+' 本图展示系统运行时的核心业务流程，包括普通业务流程（预约签到）
+' 和 AI 业务流程（智能推荐）。通过时序图体现前后端、微服务、
+' 数据库之间的交互顺序与并发策略。
+'
+' 进程视图关注：
+' 1. 请求处理线程模型：Tomcat 线程池处理 HTTP 请求
+' 2. 服务间调用：OpenFeign 同步调用 / Gateway 路由转发
+' 3. 数据库访问：MyBatis-Plus 连接池
+' 4. 缓存使用：Redis 缓存热点数据
+' 5. 异步处理：RabbitMQ 解耦通知与 AI 分析（可选）
+' ============================================================
+
+box "客户端" #E3F2FD
+    participant "用户浏览器" as Browser
+end box
+
+box "网关层" #E8F5E9
+    participant "campus-gateway\n(Tomcat线程池)" as Gateway
+end box
+
+box "微服务层" #FFF3E0
+    participant "campus-auth\n(认证服务)" as Auth
+    participant "campus-room\n(自习室服务)" as Room
+    participant "campus-reservation\n(预约服务)" as Reservation
+    participant "campus-attendance\n(考勤服务)" as Attendance
+    participant "campus-ai\n(AI服务)" as AI
+end box
+
+box "数据层" #FCE4EC
+    database "MySQL" as MySQL
+    database "Redis" as Redis
+end box
+
+== 场景一：用户预约并签到（普通业务流程） ==
+
+Browser -> Gateway : POST /api/auth/login
+activate Gateway
+Gateway -> Auth : 转发登录请求
+activate Auth
+Auth -> MySQL : 查询用户信息
+MySQL --> Auth : 返回用户数据
+Auth -> Auth : 验证密码、生成JWT
+Auth --> Gateway : 返回 Token
+Gateway --> Browser : {access_token, refresh_token, user_info}
+deactivate Auth
+deactivate Gateway
+
+Browser -> Gateway : GET /api/room/rooms
+activate Gateway
+Gateway -> Gateway : JWT 验证
+Gateway -> Room : 转发查询请求
+activate Room
+Room -> Redis : 查询缓存
+Redis --> Room : 缓存命中/未命中
+Room -> MySQL : 分页查询自习室
+MySQL --> Room : 返回列表
+Room --> Gateway : RoomVO 列表
+Gateway --> Browser : {code:200, data: list}
+deactivate Room
+deactivate Gateway
+
+Browser -> Gateway : GET /api/room/rooms/{id}/seats
+activate Gateway
+Gateway -> Room : 转发座位查询
+activate Room
+Room -> MySQL : 查询座位状态
+MySQL --> Room : 返回座位列表
+Room --> Gateway : SeatVO 列表
+Gateway --> Browser : {code:200, data: seats}
+deactivate Room
+deactivate Gateway
+
+Browser -> Gateway : POST /api/reservation/reservations
+activate Gateway
+Gateway -> Gateway : JWT 验证 + 用户ID注入
+Gateway -> Reservation : 转发创建预约
+activate Reservation
+Reservation -> MySQL : 检查时间冲突
+MySQL --> Reservation : 无冲突
+Reservation -> MySQL : 插入预约记录
+MySQL --> Reservation : 返回 reservation_id
+Reservation -> Redis : 更新预约缓存
+Reservation --> Gateway : 预约成功
+Gateway --> Browser : {code:200, data: reservation}
+deactivate Reservation
+deactivate Gateway
+
+Browser -> Gateway : PUT /api/reservation/reservations/{id}/check-in
+activate Gateway
+Gateway -> Reservation : 转发签到请求
+activate Reservation
+Reservation -> MySQL : 更新预约状态为 checked_in
+MySQL --> Reservation : 更新成功
+Reservation -> Attendance : 创建考勤记录（Feign/HTTP）
+activate Attendance
+Attendance -> MySQL : 插入考勤记录
+MySQL --> Attendance : 返回 attendance_id
+Attendance --> Reservation : 考勤创建成功
+deactivate Attendance
+Reservation --> Gateway : 签到成功
+Gateway --> Browser : {code:200}
+deactivate Reservation
+deactivate Gateway
+
+== 场景二：AI 智能推荐（AI 业务流程） ==
+
+Browser -> Gateway : POST /api/ai/recommendations
+activate Gateway
+Gateway -> Gateway : JWT 验证
+Gateway -> AI : 转发推荐请求
+activate AI
+AI -> Redis : 查询用户历史行为缓存
+Redis --> AI : 返回行为数据
+AI -> MySQL : 查询用户预约历史
+MySQL --> AI : 返回历史记录
+AI -> AI : 协同过滤算法计算相似用户
+AI -> AI : 内容过滤算法匹配座位特征
+AI -> AI : 混合策略排序生成 TopN
+AI -> MySQL : 保存推荐结果
+MySQL --> AI : 保存成功
+AI -> Redis : 缓存推荐结果
+AI --> Gateway : RecommendationVO 列表
+Gateway --> Browser : {code:200, data: recommendations}
+deactivate AI
+deactivate Gateway
+
+note right of Gateway
+  **Gateway 并发处理**
+  - 每个请求由 Tomcat 线程独立处理
+  - JWT 过滤器同步验证令牌
+  - 路由转发至下游服务
+  - 支持后续集成限流熔断
+end note
+
+note right of Reservation
+  **预约服务事务**
+  - 创建预约使用数据库事务
+  - 冲突检测通过数据库唯一索引
+  - 签到触发跨服务调用
+  - 可扩展分布式锁防止超卖
+end note
+
+note right of AI
+  **AI 服务处理**
+  - 行为数据优先读 Redis 缓存
+  - 协同过滤离线/在线混合计算
+  - 推荐结果持久化便于分析
+  - 可接入真实 LLM 增强解释
+end note
+
+@enduml

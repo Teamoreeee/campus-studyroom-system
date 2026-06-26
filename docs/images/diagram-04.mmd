@@ -1,0 +1,65 @@
+flowchart TB
+    subgraph AccessLayer["接入层"]
+        Browser["PC/移动端浏览器"]
+        Nginx["Nginx 静态资源服务器"]
+    end
+
+    subgraph GatewayLayer["网关层"]
+        Gateway["Spring Cloud Gateway<br/>端口: 8000"]
+    end
+
+    subgraph ServiceLayer["业务服务层"]
+        Auth["campus-auth<br/>端口: 8001<br/>认证服务"]
+        User["campus-user<br/>端口: 8002<br/>用户服务"]
+        Room["campus-room<br/>端口: 8003<br/>自习室服务"]
+        Reservation["campus-reservation<br/>端口: 8004<br/>预约服务"]
+        Attendance["campus-attendance<br/>端口: 8005<br/>考勤服务"]
+        AI["campus-ai<br/>端口: 8006<br/>AI服务"]
+    end
+
+    subgraph DataLayer["数据层"]
+        MySQL["MySQL 8.0 / 达梦8<br/>业务数据库"]
+        Redis["Redis 7.0<br/>缓存/会话/分布式锁"]
+        Nacos["Nacos 2.3.0<br/>注册中心/配置中心"]
+    end
+
+    subgraph Infrastructure["基础设施层"]
+        Docker["Docker 容器运行时"]
+        K8s["Kubernetes 编排平台"]
+        Monitor["Prometheus + Grafana<br/>监控告警"]
+        Trace["SkyWalking<br/>链路追踪"]
+    end
+
+    Browser --> Nginx
+    Nginx --> Gateway
+    Gateway --> Auth
+    Gateway --> User
+    Gateway --> Room
+    Gateway --> Reservation
+    Gateway --> Attendance
+    Gateway --> AI
+
+    Auth --> MySQL
+    Auth --> Redis
+    User --> MySQL
+    Room --> MySQL
+    Room --> Redis
+    Reservation --> MySQL
+    Reservation --> Redis
+    Attendance --> MySQL
+    AI --> MySQL
+    AI --> Redis
+
+    Auth --> Nacos
+    User --> Nacos
+    Room --> Nacos
+    Reservation --> Nacos
+    Attendance --> Nacos
+    AI --> Nacos
+    Gateway --> Nacos
+
+    ServiceLayer -.-> Docker
+    DataLayer -.-> Docker
+    Docker -.-> K8s
+    ServiceLayer -.-> Monitor
+    ServiceLayer -.-> Trace

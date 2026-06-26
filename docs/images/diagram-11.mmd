@@ -1,0 +1,37 @@
+erDiagram
+    USER ||--o{ USER_ROLE : "拥有"
+    ROLE ||--o{ USER_ROLE : "分配给"
+    ROLE ||--o{ ROLE_PERMISSION : "拥有"
+    PERMISSION ||--o{ ROLE_PERMISSION : "授予"
+    PERMISSION ||--o{ PERMISSION : "父子层级"
+
+    USER ||--o{ RESERVATION : "创建"
+    USER ||--o{ ATTENDANCE : "记录"
+    USER ||--o{ VIOLATION : "产生"
+    USER ||--o{ NOTIFICATION : "接收"
+    USER ||--o{ AI_RECOMMENDATION : "接收"
+
+    STUDY_ROOM ||--o{ STUDY_SEAT : "包含"
+    STUDY_ROOM ||--o{ TIME_SLOT : "定义"
+    STUDY_ROOM ||--o{ RESERVATION : "被预约"
+    STUDY_ROOM ||--o{ AI_RECOMMENDATION : "被推荐"
+    STUDY_ROOM ||--o{ ATTENDANCE_RULE : "适用"
+
+    STUDY_SEAT ||--o{ RESERVATION : "被预约"
+    STUDY_SEAT ||--o{ AI_RECOMMENDATION : "被推荐"
+
+    TIME_SLOT ||--o{ RESERVATION : "被使用"
+
+    RESERVATION ||--|| ATTENDANCE : "生成"
+    RESERVATION ||--o{ VIOLATION : "关联"
+    ATTENDANCE ||--o{ ANOMALY : "产生"
+
+    KNOWLEDGE_BASE {
+        BIGINT knowledge_id PK
+        VARCHAR category
+        VARCHAR title
+        TEXT content
+        VARCHAR keywords
+        BOOLEAN is_active
+        INT view_count
+    }

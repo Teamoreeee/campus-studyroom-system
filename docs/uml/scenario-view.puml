@@ -1,0 +1,111 @@
+@startuml scenario-view
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+
+title 校园自习室预约系统 - 场景视图（用户预约自习室）
+
+' ============================================================
+' 设计说明：
+' 本图通过“用户预约自习室”这一核心场景，串联逻辑视图、开发视图、
+' 物理视图和进程视图，验证架构设计的合理性与完整性。
+'
+' 场景：学生用户登录系统后，查询自习室，选择座位并时间段，
+' 提交预约，系统完成冲突检测并返回预约结果。
+' ============================================================
+
+package "场景参与者" #E3F2FD {
+    actor "学生用户" as Student
+}
+
+package "逻辑视图关联" #E8F5E9 {
+    component "User\n用户实体" as User
+    component "StudyRoom\n自习室实体" as Room
+    component "Seat\n座位实体" as Seat
+    component "Reservation\n预约实体" as Reservation
+    component "ReservationService\n预约服务" as ResService
+}
+
+package "开发视图关联" #FFF3E0 {
+    component "ReservationController\ncontroller 层" as ResCtrl
+    component "ReservationServiceImpl\nservice 层" as ResSvcImpl
+    component "ReservationMapper\nmapper 层" as ResMapper
+    component "Reservation\nentity 层" as ResEntity
+}
+
+package "物理视图关联" #FCE4EC {
+    node "campus-reservation Pod" as ResPod
+    database "MySQL" as MySQL
+    database "Redis" as Redis
+    node "campus-gateway Pod" as GatewayPod
+}
+
+package "进程视图关联" #FFF9C4 {
+    usecase "1. 用户登录获取 JWT" as UC1
+    usecase "2. 查询自习室与座位" as UC2
+    usecase "3. 提交预约请求" as UC3
+    usecase "4. 服务层冲突检测" as UC4
+    usecase "5. 写入数据库并返回" as UC5
+}
+
+' 场景流程
+Student --> UC1
+UC1 --> UC2 : 登录成功后
+UC2 --> UC3 : 选择座位和时段
+UC3 --> UC4 : 提交预约
+UC4 --> UC5 : 无冲突
+
+' 场景与逻辑视图关联
+UC1 ..-> User : 验证身份
+UC2 ..-> Room : 查询自习室
+UC2 ..-> Seat : 查询座位
+UC3 ..-> Reservation : 创建预约
+UC4 ..-> ResService : 冲突检测逻辑
+
+' 场景与开发视图关联
+UC3 ..-> ResCtrl : 接收 HTTP 请求
+UC4 ..-> ResSvcImpl : 业务逻辑
+UC4 ..-> ResMapper : 查询冲突
+UC5 ..-> ResEntity : 持久化
+
+' 场景与物理视图关联
+ResCtrl ..-> ResPod : 部署运行
+ResSvcImpl ..-> ResPod : 部署运行
+ResMapper ..-> MySQL : JDBC 连接
+ResSvcImpl ..-> Redis : 缓存热点数据
+Student ..-> GatewayPod : HTTPS 请求入口
+
+' 场景与进程视图关联（说明运行线程）
+note right of UC1
+  **进程视图说明**
+  - Tomcat 线程处理 HTTP 请求
+  - Gateway 线程先进行 JWT 验证
+  - 验证通过后路由到 reservation 服务
+end note
+
+note right of UC4
+  **并发控制**
+  - 同一座位同一时间只能有一个有效预约
+  - 通过数据库唯一索引或分布式锁实现
+  - 冲突时返回业务错误
+end note
+
+note bottom of ResSvcImpl
+  **开发视图说明**
+  - Controller 接收请求并校验
+  - Service 编排业务并处理事务
+  - Mapper 访问数据库
+  - 分层清晰，便于测试和维护
+end note
+
+note bottom of GatewayPod
+  **物理视图说明**
+  - 用户请求经 Nginx Ingress 进入
+  - Gateway Pod 统一认证和路由
+  - 业务 Pod 独立部署，支持水平扩展
+end note
+
+@enduml

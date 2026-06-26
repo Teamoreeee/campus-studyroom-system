@@ -1,0 +1,70 @@
+classDiagram
+    class ReservationEventPublisher {
+        -listeners: List~ReservationEventListener~
+        +subscribe(listener: ReservationEventListener): void
+        +unsubscribe(listener: ReservationEventListener): void
+        +publish(event: ReservationEvent): void
+        -notifyListeners(event: ReservationEvent): void
+    }
+
+    class ReservationEventListener {
+        <<interface>>
+        +onEvent(event: ReservationEvent): void
+        +supports(eventType: EventType): boolean
+    }
+
+    class AttendanceListener {
+        -attendanceService: AttendanceService
+        +onEvent(event: ReservationEvent): void
+        +supports(eventType: EventType): boolean
+    }
+
+    class NotificationListener {
+        -notificationFactory: NotificationFactory
+        -notificationService: NotificationService
+        +onEvent(event: ReservationEvent): void
+        +supports(eventType: EventType): boolean
+    }
+
+    class ViolationListener {
+        -violationDetector: ViolationDetector
+        -violationRecordService: ViolationRecordService
+        +onEvent(event: ReservationEvent): void
+        +supports(eventType: EventType): boolean
+    }
+
+    class AiAnalysisListener {
+        -recommendationService: RecommendationService
+        -behaviorAnalyzer: BehaviorAnalyzer
+        +onEvent(event: ReservationEvent): void
+        +supports(eventType: EventType): boolean
+    }
+
+    class ReservationEvent {
+        +eventId: String
+        +eventType: EventType
+        +reservationId: Long
+        +userId: Long
+        +seatId: Long
+        +timestamp: DateTime
+        +source: String
+    }
+
+    class EventType {
+        <<enumeration>>
+        CREATED
+        CANCELLED
+        CHECKED_IN
+        CHECKED_OUT
+        EXPIRED
+        NO_SHOW
+    }
+
+    ReservationEventPublisher --> ReservationEventListener : notifies
+    ReservationEventListener <|.. AttendanceListener
+    ReservationEventListener <|.. NotificationListener
+    ReservationEventListener <|.. ViolationListener
+    ReservationEventListener <|.. AiAnalysisListener
+    ReservationEventPublisher ..> ReservationEvent : publishes
+    ReservationEventListener ..> ReservationEvent : consumes
+    ReservationEvent --> EventType : has

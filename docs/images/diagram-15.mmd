@@ -1,0 +1,12 @@
+stateDiagram-v2
+    [*] --> PENDING: 创建预约
+    PENDING --> CONFIRMED: 系统确认/支付成功
+    PENDING --> CANCELLED: 用户取消
+    CONFIRMED --> CHECKED_IN: 用户签到
+    CONFIRMED --> TIMEOUT: 超时未签到
+    CONFIRMED --> CANCELLED: 用户取消
+    CHECKED_IN --> COMPLETED: 正常签退
+    CHECKED_IN --> TIMEOUT: 超时未签退
+    TIMEOUT --> [*]
+    COMPLETED --> [*]
+    CANCELLED --> [*]

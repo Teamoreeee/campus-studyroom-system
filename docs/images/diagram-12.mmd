@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant AC as AuthController
+    participant US as UserService
+    participant DB as 数据库
+    participant JU as JwtUtils
+
+    C->>AC: POST /api/auth/register<br/>{username, password, realName, studentNo, email}
+    AC->>US: register(username, password, ...)
+    US->>DB: 查询 username 是否存在
+    DB-->>US: 结果
+    alt 用户名已存在
+        US-->>AC: 抛出异常
+        AC-->>C: Result.fail("用户名已存在")
+    else 用户名可用
+        US->>US: BCrypt 加密密码
+        US->>DB: INSERT INTO user
+        DB-->>US: 插入成功
+        US-->>AC: true
+        AC-->>C: "注册成功"
+    end
+
+    C->>AC: POST /api/auth/login<br/>{username, password}
+    AC->>US: login(username, password)
+    US->>DB: 查询用户
+    DB-->>US: User
+    alt 用户不存在或密码错误
+        US-->>AC: 抛出异常
+        AC-->>C: Result.fail("登录失败")
+    else 验证通过
+        US-->>AC: User
+        AC->>JU: generateAccessToken(userId, username, role)
+        AC->>JU: generateRefreshToken(userId, username)
+        JU-->>AC: accessToken, refreshToken
+        AC-->>C: LoginResponse{accessToken, refreshToken, userInfo}
+    end

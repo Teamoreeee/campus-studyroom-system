@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campus-reservation
+  namespace: campus-studyroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campus-reservation
+  template:
+    metadata:
+      labels:
+        app: campus-reservation
+    spec:
+      containers:
+        - name: campus-reservation
+          image: campus-studyroom/campus-reservation:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - configMapRef:
+                name: campus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: campus-reservation
+  namespace: campus-studyroom
+spec:
+  selector:
+    app: campus-reservation
+  ports:
+    - port: 8004
+      targetPort: 8004

@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> available: 初始化
+    available --> reserved: 用户预约
+    reserved --> occupied: 用户签到
+    available --> occupied: 直接占用（特殊情况）
+    occupied --> available: 用户签退/释放
+    reserved --> available: 预约取消/超时
+    available --> maintenance: 维护
+    maintenance --> available: 维护完成

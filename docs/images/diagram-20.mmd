@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor U as 用户(浏览器/APP)
+    participant F as 前端 nginx
+    participant G as API 网关<br/>(campus-gateway)
+    participant A as 认证服务<br/>(campus-auth)
+    participant S as 业务微服务
+    participant R as Redis
+
+    U->>F: ① POST /api/auth/login<br/>{username, password}
+    F->>G: ② 转发至网关
+    G->>A: ③ 路由至 campus-auth
+    A->>A: ④ 校验用户名密码(BCrypt)
+    A->>R: ⑤ 存储 refreshToken<br/>SET refresh:xxx {userId} EX 604800
+    A-->>G: ⑥ 返回 accessToken + refreshToken
+    G-->>F: ⑦ 返回 JWT 双 Token
+    F-->>U: ⑧ 前端存储 Token<br/>(localStorage + httpOnly Cookie)
+
+    U->>F: ⑨ GET /api/room/list<br/>Authorization: Bearer {accessToken}
+    F->>G: ⑩ 转发至网关
+    G->>G: ⑪ 校验 accessToken<br/>(签名/过期/黑名单)
+    G->>S: ⑫ 路由至 campus-room<br/>(透传 userId)
+    S-->>G: ⑬ 返回业务数据
+    G-->>F: ⑭ 返回响应
+    F-->>U: ⑮ 渲染自习室列表
+
+    U->>F: ⑯ POST /api/auth/refresh<br/>{refreshToken}
+    F->>G: ⑰ 转发
+    G->>A: ⑱ 路由至 campus-auth
+    A->>R: ⑲ 校验 refreshToken 存在且未过期
+    A->>R: ⑳ 删除旧 refreshToken，生成新双 Token
+    A-->>G: ㉑ 返回新 accessToken + refreshToken
+    G-->>F: ㉒ 返回新 Token
+    F-->>U: ㉓ 更新本地存储

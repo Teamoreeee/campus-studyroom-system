@@ -1,0 +1,324 @@
+@startuml logical-pattern-factory
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classFontName Microsoft YaHei
+skinparam defaultFontName Microsoft YaHei
+skinparam shadowing false
+
+title 校园自习室预约系统 - 工厂模式详细类图（逻辑视图）
+
+' ============================================================
+' 设计说明：
+' 本图展示校园自习室预约系统中工厂模式（Factory Pattern）的
+' 详细设计。工厂模式是创建型设计模式的核心模式之一，在本系统
+' 中用于通知对象的创建管理。
+'
+' 设计背景：
+' 在自习室预约系统中，当预约状态发生变化时（如预约成功、预约
+' 取消、签到提醒、违规通知等），系统需要向用户发送不同类型的
+' 通知。通知渠道包括邮件通知、短信通知和站内信通知，且未来
+' 可能扩展微信通知、钉钉通知等新渠道。如果直接在业务代码中
+' 使用new创建通知对象，将导致代码耦合度高、扩展困难。
+'
+' 设计方案：
+' 采用工厂方法模式，定义Notification抽象产品类和
+' NotificationFactory抽象工厂类，每种通知类型对应一个具体
+' 产品类和具体工厂类。客户端通过抽象工厂接口创建通知对象，
+' 无需关心具体创建逻辑。
+'
+' 核心类说明：
+' - Notification：抽象通知产品，定义通知的公共属性和抽象发送方法
+' - EmailNotification：邮件通知，通过SMTP协议发送邮件
+' - SmsNotification：短信通知，通过阿里云短信服务发送
+' - InAppNotification：站内信通知，通过WebSocket实时推送
+' - WechatNotification：微信通知（预留扩展），通过微信模板消息发送
+' - NotificationFactory：抽象工厂，定义创建通知的工厂方法
+' - EmailNotificationFactory：邮件通知工厂
+' - SmsNotificationFactory：短信通知工厂
+' - InAppNotificationFactory：站内信通知工厂
+' - NotificationFactoryProducer：工厂生产者，根据类型选择工厂
+'
+' 扩展性设计：
+' 新增通知渠道只需添加具体产品类和对应工厂类，无需修改现有
+' 代码，完全符合开闭原则（OCP）。同时结合Spring的依赖注入，
+' 工厂类可通过配置动态注册。
+' ============================================================
+
+package "工厂模式 - 通知系统" #FFFDE7 {
+
+    package "抽象产品 (Abstract Product)" #E8F5E9 {
+        abstract class Notification {
+            # notificationId: Long
+            # recipientId: Long
+            # recipientAddress: String
+            # subject: String
+            # content: String
+            # priority: NotificationPriority
+            # status: NotificationStatus
+            # createTime: LocalDateTime
+            # retryCount: Integer
+            # maxRetry: Integer
+
+            + {abstract} send(): SendResult
+            + {abstract} formatContent(template: String, params: Map): String
+            + validate(): Boolean
+            + retry(): SendResult
+            + markAsRead(): void
+            + getNotificationType(): NotificationType
+        }
+
+        enum NotificationType {
+            EMAIL
+            SMS
+            IN_APP
+            WECHAT
+        }
+
+        enum NotificationPriority {
+            LOW
+            NORMAL
+            HIGH
+            URGENT
+        }
+
+        enum NotificationStatus {
+            PENDING
+            SENDING
+            SENT
+            FAILED
+            READ
+        }
+
+        class SendResult {
+            - success: Boolean
+            - messageId: String
+            - errorMessage: String
+            - sendTime: LocalDateTime
+            + isSuccess(): Boolean
+            + getErrorMessage(): String
+        }
+
+        Notification --> NotificationType
+        Notification --> NotificationPriority
+        Notification --> NotificationStatus
+        Notification ..> SendResult
+    }
+
+    package "具体产品 (Concrete Products)" #E3F2FD {
+        class EmailNotification {
+            - smtpHost: String
+            - smtpPort: Integer
+            - senderEmail: String
+            - ccList: List<String>
+            - attachments: List<Attachment>
+            - htmlContent: Boolean
+            - templateEngine: TemplateEngine
+
+            + send(): SendResult
+            + formatContent(template: String, params: Map): String
+            + addAttachment(file: Attachment): void
+            + setHtmlContent(html: String): void
+            + renderTemplate(template: String, data: Map): String
+            + buildMimeMessage(): MimeMessage
+        }
+
+        class SmsNotification {
+            - smsProvider: SmsProvider
+            - signName: String
+            - templateCode: String
+            - templateParams: Map<String, String>
+            - phoneNumber: String
+            - region: String
+
+            + send(): SendResult
+            + formatContent(template: String, params: Map): String
+            + validatePhoneNumber(): Boolean
+            + buildSmsRequest(): SmsRequest
+            + parseSmsResponse(response: SmsResponse): SendResult
+        }
+
+        class InAppNotification {
+            - webSocketServer: String
+            - targetUrl: String
+            - iconUrl: String
+            - badge: Integer
+            - actionType: String
+            - actionParams: Map<String, Object>
+            - pushService: WebSocketPushService
+
+            + send(): SendResult
+            + formatContent(template: String, params: Map): String
+            + pushToClient(): SendResult
+            + buildPushMessage(): PushMessage
+            + setAction(actionType: String, params: Map): void
+            + incrementBadge(): void
+        }
+
+        class WechatNotification {
+            - appId: String
+            - templateId: String
+            - openId: String
+            - miniProgramPage: String
+            - templateData: Map<String, String>
+            - wechatApiService: WechatApiService
+
+            + send(): SendResult
+            + formatContent(template: String, params: Map): String
+            + buildTemplateMessage(): WechatTemplateMessage
+            + sendTemplateMessage(): WechatResponse
+            + parseWechatResponse(response: WechatResponse): SendResult
+        }
+
+        Notification <|-- EmailNotification
+        Notification <|-- SmsNotification
+        Notification <|-- InAppNotification
+        Notification <|-- WechatNotification
+    }
+
+    package "抽象工厂 (Abstract Factory)" #FFF3E0 {
+        abstract class NotificationFactory {
+            # notificationConfig: NotificationConfig
+            # templateService: TemplateService
+
+            + {abstract} createNotification(params: NotificationParams): Notification
+            + {abstract} getNotificationType(): NotificationType
+            + loadTemplate(templateId: String): NotificationTemplate
+            + validateParams(params: NotificationParams): Boolean
+            + getDefaultConfig(): NotificationConfig
+        }
+
+        class NotificationParams {
+            - recipientId: Long
+            - recipientAddress: String
+            - subject: String
+            - content: String
+            - priority: NotificationPriority
+            - templateId: String
+            - templateParams: Map<String, Object>
+            + toMap(): Map
+        }
+
+        class NotificationConfig {
+            - enabled: Boolean
+            - maxRetry: Integer
+            - retryInterval: Integer
+            - rateLimit: Integer
+            - batchSize: Integer
+            + update(newConfig: NotificationConfig): void
+        }
+
+        NotificationFactory --> NotificationConfig
+        NotificationFactory ..> NotificationParams
+    }
+
+    package "具体工厂 (Concrete Factories)" #F3E5F5 {
+        class EmailNotificationFactory {
+            - smtpConfig: SmtpConfig
+            - templateEngine: TemplateEngine
+
+            + createNotification(params: NotificationParams): Notification
+            + getNotificationType(): NotificationType
+            + configureSmtp(config: SmtpConfig): void
+            + testConnection(): Boolean
+        }
+
+        class SmsNotificationFactory {
+            - aliyunSmsConfig: AliyunSmsConfig
+            - smsTemplateCache: Map<String, String>
+
+            + createNotification(params: NotificationParams): Notification
+            + getNotificationType(): NotificationType
+            + registerTemplate(templateCode: String, content: String): void
+            + checkBalance(): Double
+        }
+
+        class InAppNotificationFactory {
+            - webSocketConfig: WebSocketConfig
+            - pushService: WebSocketPushService
+
+            + createNotification(params: NotificationParams): Notification
+            + getNotificationType(): NotificationType
+            + checkUserOnline(userId: Long): Boolean
+            + getOnlineCount(): Integer
+        }
+
+        class WechatNotificationFactory {
+            - wechatConfig: WechatConfig
+            - templateCache: Map<String, String>
+
+            + createNotification(params: NotificationParams): Notification
+            + getNotificationType(): NotificationType
+            + refreshAccessToken(): String
+            + syncTemplates(): void
+        }
+
+        NotificationFactory <|-- EmailNotificationFactory
+        NotificationFactory <|-- SmsNotificationFactory
+        NotificationFactory <|-- InAppNotificationFactory
+        NotificationFactory <|-- WechatNotificationFactory
+
+        EmailNotificationFactory ..> EmailNotification : 创建
+        SmsNotificationFactory ..> SmsNotification : 创建
+        InAppNotificationFactory ..> InAppNotification : 创建
+        WechatNotificationFactory ..> WechatNotification : 创建
+    }
+
+    package "工厂生产者 (Factory Producer)" #FCE4EC {
+        class NotificationFactoryProducer {
+            - factoryMap: Map<NotificationType, NotificationFactory>
+            - {static} instance: NotificationFactoryProducer
+
+            + {static} getInstance(): NotificationFactoryProducer
+            + getFactory(type: NotificationType): NotificationFactory
+            + registerFactory(type: NotificationType, factory: NotificationFactory): void
+            + unregisterFactory(type: NotificationType): void
+            + getAllRegisteredTypes(): List<NotificationType>
+            - initDefaultFactories(): void
+        }
+
+        NotificationFactoryProducer --> NotificationFactory : 管理
+    }
+
+    package "通知服务 (Notification Service)" #E0F7FA {
+        class NotificationService {
+            - factoryProducer: NotificationFactoryProducer
+            - notificationRepository: NotificationRepository
+            - asyncExecutor: AsyncTaskExecutor
+
+            + sendNotification(type: NotificationType, params: NotificationParams): SendResult
+            + sendBatchNotification(type: NotificationType, paramsList: List): List<SendResult>
+            + sendMultiChannelNotification(types: List, params: NotificationParams): Map<NotificationType, SendResult>
+            + getNotificationHistory(userId: Long): List<Notification>
+            + markAsRead(notificationId: Long): void
+        }
+
+        NotificationService --> NotificationFactoryProducer : 使用
+        NotificationService ..> Notification : 管理
+    }
+}
+
+note right of NotificationFactoryProducer
+  工厂生产者是工厂模式的管理中心，
+  维护所有通知工厂的注册表。
+  支持运行时动态注册和注销工厂，
+  结合Spring IoC容器实现自动装配。
+  通过单例模式确保全局唯一实例。
+end note
+
+note right of NotificationService
+  通知服务是工厂模式的客户端，
+  通过工厂生产者获取对应工厂，
+  创建通知对象并执行发送。
+  支持单渠道、批量、多渠道发送。
+end note
+
+note bottom of WechatNotification
+  预留扩展：微信通知
+  通过微信模板消息API发送
+  体现工厂模式的扩展性
+  新增渠道无需修改现有代码
+end note
+
+@enduml

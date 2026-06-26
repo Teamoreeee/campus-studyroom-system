@@ -1,0 +1,1 @@
+{"code":200,"message":"操作成功","data":[{"recommendationId":1,"userId":5,"roomId":1,"seatId":2,"score":0.99,"reason":"带有\"电源\"标签的座位配备插座，适合需要给电脑、手机充电的同学。","strategy":"内容推荐","createTime":"2026-06-25T15:22:14.593303500"}]}

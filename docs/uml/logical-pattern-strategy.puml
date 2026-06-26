@@ -1,0 +1,406 @@
+@startuml logical-pattern-strategy
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classFontName Microsoft YaHei
+skinparam defaultFontName Microsoft YaHei
+skinparam shadowing false
+
+title 校园自习室预约系统 - 策略模式详细类图（逻辑视图）
+
+' ============================================================
+' 设计说明：
+' 本图展示校园自习室预约系统中策略模式（Strategy Pattern）的
+' 详细设计。策略模式是行为型设计模式的重要模式，在本系统中
+' 用于AI推荐引擎的推荐算法策略管理。
+'
+' 设计背景：
+' 自习室推荐系统需要根据不同场景和用户特征选择不同的推荐
+' 算法。常见的推荐算法包括协同过滤（基于用户行为相似度）、
+' 内容过滤（基于物品特征匹配）和混合推荐（融合多种算法）。
+' 不同算法各有优劣，且可能需要根据系统负载、数据量、时间
+' 段等因素动态切换。如果在业务代码中硬编码推荐逻辑，将
+' 导致代码复杂度高、难以维护和扩展。
+'
+' 设计方案：
+' 采用策略模式，定义RecommendStrategy统一接口，每种推荐
+' 算法实现为一个具体策略类。通过RecommendContext上下文
+' 类管理策略的选择和切换，客户端通过上下文类调用推荐功能，
+' 无需关心具体算法实现。
+'
+' 核心类说明：
+' - RecommendStrategy：策略接口，定义推荐的统一方法签名
+' - CollaborativeFilterStrategy：协同过滤策略，基于用户-物品
+'   矩阵计算相似度，发现相似用户偏好进行推荐
+' - ContentFilterStrategy：内容过滤策略，基于自习室和座位
+'   特征向量计算相似度，匹配用户历史偏好
+' - HybridStrategy：混合推荐策略，加权融合协同过滤和内容
+'   过滤结果，并结合业务规则进行最终排序
+' - RecommendContext：策略上下文，持有当前策略引用，提供
+'   策略切换和推荐调用的统一入口
+' - StrategyFactory：策略工厂，根据配置或条件创建策略实例
+' - StrategyConfig：策略配置，定义各策略的参数和权重
+'
+' 策略切换机制：
+' 系统支持三种策略切换方式：1）基于配置文件的静态切换；
+' 2）基于Nacos的动态配置切换；3）基于运行时指标的自动切换
+' （如数据稀疏时自动切换到内容过滤）。
+' ============================================================
+
+package "策略模式 - 推荐系统" #FFFDE7 {
+
+    package "策略接口 (Strategy Interface)" #E8F5E9 {
+        interface RecommendStrategy {
+            + recommend(userId: Long, context: RecommendContext): List<Recommendation>
+            + recommendWithScore(userId: Long, context: RecommendContext): List<ScoredRecommendation>
+            + getStrategyName(): String
+            + getStrategyType(): StrategyType
+            + isApplicable(context: RecommendContext): Boolean
+            + estimateQuality(userId: Long): QualityEstimate
+        }
+
+        enum StrategyType {
+            COLLABORATIVE_FILTER
+            CONTENT_FILTER
+            HYBRID
+        }
+
+        class QualityEstimate {
+            - coverage: Double
+            - diversity: Double
+            - novelty: Double
+            - confidence: Double
+            + isAcceptable(): Boolean
+            + toMap(): Map
+        }
+
+        RecommendStrategy --> StrategyType
+        RecommendStrategy ..> QualityEstimate
+    }
+
+    package "推荐上下文 (Recommend Context)" #FFF3E0 {
+        class RecommendContext {
+            - userId: Long
+            - currentStrategy: RecommendStrategy
+            - userBehaviorHistory: List<UserBehavior>
+            - candidateRooms: List<StudyRoom>
+            - candidateSeats: List<Seat>
+            - timeRange: TimeRange
+            - preferences: UserPreferences
+            - requestTime: LocalDateTime
+            - strategyConfig: StrategyConfig
+
+            + setStrategy(strategy: RecommendStrategy): void
+            + executeRecommend(): List<Recommendation>
+            + executeRecommendWithScore(): List<ScoredRecommendation>
+            + switchStrategy(strategy: RecommendStrategy): void
+            + getCurrentStrategy(): RecommendStrategy
+            + getUserPreferences(): UserPreferences
+            + getCandidateRooms(): List<StudyRoom>
+        }
+
+        class UserPreferences {
+            - preferredBuildings: List<String>
+            - preferredFloors: List<Integer>
+            - preferredSeatTypes: List<SeatType>
+            - preferredTimeSlots: List<TimeSlot>
+            - hasPowerRequired: Boolean
+            - quietnessLevel: Integer
+            + matchRoom(room: StudyRoom): Double
+            + matchSeat(seat: Seat): Double
+        }
+
+        class TimeRange {
+            - startTime: LocalTime
+            - endTime: LocalTime
+            - date: LocalDate
+            + contains(time: LocalTime): Boolean
+            + getDuration(): Duration
+        }
+
+        class ScoredRecommendation {
+            - recommendation: Recommendation
+            - score: Double
+            - reason: String
+            - strategyName: String
+            - confidence: Double
+            + compareTo(other: ScoredRecommendation): Integer
+            + isHighConfidence(): Boolean
+        }
+
+        RecommendContext --> RecommendStrategy
+        RecommendContext --> UserPreferences
+        RecommendContext --> TimeRange
+        RecommendContext ..> ScoredRecommendation
+    }
+
+    package "协同过滤策略 (Collaborative Filter)" #E3F2FD {
+        class CollaborativeFilterStrategy {
+            - similarityThreshold: Double
+            - neighborCount: Integer
+            - minCommonItems: Integer
+            - userItemMatrix: UserItemMatrix
+            - similarityCalculator: SimilarityCalculator
+
+            + recommend(userId: Long, context: RecommendContext): List<Recommendation>
+            + recommendWithScore(userId: Long, context: RecommendContext): List<ScoredRecommendation>
+            + getStrategyName(): String
+            + getStrategyType(): StrategyType
+            + isApplicable(context: RecommendContext): Boolean
+            + estimateQuality(userId: Long): QualityEstimate
+            - findSimilarUsers(userId: Long): List<SimilarUser>
+            - predictRating(userId: Long, itemId: Long): Double
+            - buildUserItemMatrix(): UserItemMatrix
+            - calculateUserSimilarity(user1: Long, user2: Long): Double
+        }
+
+        class UserItemMatrix {
+            - matrix: Map<Long, Map<Long, Double>>
+            - userCount: Integer
+            - itemCount: Integer
+            - sparsity: Double
+            + getUserVector(userId: Long): Map<Long, Double>
+            + getItemVector(itemId: Long): Map<Long, Double>
+            + getRating(userId: Long, itemId: Long): Double
+            + getSparsity(): Double
+        }
+
+        class SimilarityCalculator {
+            - algorithm: SimilarityAlgorithm
+            + cosineSimilarity(vec1: Map, vec2: Map): Double
+            + pearsonCorrelation(vec1: Map, vec2: Map): Double
+            + jaccardSimilarity(set1: Set, set2: Set): Double
+        }
+
+        class SimilarUser {
+            - userId: Long
+            - similarity: Double
+            - commonItems: Integer
+            + getTopPreferences(n: Integer): List<Long>
+        }
+
+        enum SimilarityAlgorithm {
+            COSINE
+            PEARSON
+            JACCARD
+        }
+
+        CollaborativeFilterStrategy --> UserItemMatrix
+        CollaborativeFilterStrategy --> SimilarityCalculator
+        CollaborativeFilterStrategy ..> SimilarUser
+        SimilarityCalculator --> SimilarityAlgorithm
+        RecommendStrategy <|.. CollaborativeFilterStrategy
+    }
+
+    package "内容过滤策略 (Content Filter)" #F3E5F5 {
+        class ContentFilterStrategy {
+            - featureWeights: Map<String, Double>
+            - featureExtractor: FeatureExtractor
+            - similarityMetric: ContentSimilarityMetric
+            - userProfileBuilder: UserProfileBuilder
+            - minSimilarityScore: Double
+
+            + recommend(userId: Long, context: RecommendContext): List<Recommendation>
+            + recommendWithScore(userId: Long, context: RecommendContext): List<ScoredRecommendation>
+            + getStrategyName(): String
+            + getStrategyType(): StrategyType
+            + isApplicable(context: RecommendContext): Boolean
+            + estimateQuality(userId: Long): QualityEstimate
+            - extractFeatures(room: StudyRoom, seat: Seat): FeatureVector
+            - buildUserProfile(userId: Long): UserProfile
+            - calculateContentSimilarity(profile: UserProfile, features: FeatureVector): Double
+            - rankByContentMatch(candidates: List, profile: UserProfile): List<ScoredRecommendation>
+        }
+
+        class FeatureExtractor {
+            - featureDimension: Integer
+            + extractRoomFeatures(room: StudyRoom): FeatureVector
+            + extractSeatFeatures(seat: Seat): FeatureVector
+            + extractCombinedFeatures(room: StudyRoom, seat: Seat): FeatureVector
+            + getFeatureNames(): List<String>
+        }
+
+        class FeatureVector {
+            - values: double[]
+            - featureNames: List<String>
+            - dimension: Integer
+            + cosineSimilarity(other: FeatureVector): Double
+            + euclideanDistance(other: FeatureVector): Double
+            + normalize(): FeatureVector
+            + dotProduct(other: FeatureVector): Double
+        }
+
+        class UserProfileBuilder {
+            - behaviorWeight: Double
+            - preferenceWeight: Double
+            + buildProfile(userId: Long, behaviors: List): UserProfile
+            + updateProfile(profile: UserProfile, behavior: UserBehavior): UserProfile
+            + decayProfile(profile: UserProfile, factor: Double): UserProfile
+        }
+
+        class UserProfile {
+            - userId: Long
+            - preferenceVector: FeatureVector
+            - behaviorWeights: Map<String, Double>
+            - lastUpdated: LocalDateTime
+            + matchScore(features: FeatureVector): Double
+        }
+
+        enum ContentSimilarityMetric {
+            COSINE
+            EUCLIDEAN
+            MANHATTAN
+        }
+
+        ContentFilterStrategy --> FeatureExtractor
+        ContentFilterStrategy --> UserProfileBuilder
+        ContentFilterStrategy --> ContentSimilarityMetric
+        FeatureExtractor ..> FeatureVector
+        UserProfileBuilder ..> UserProfile
+        RecommendStrategy <|.. ContentFilterStrategy
+    }
+
+    package "混合推荐策略 (Hybrid)" #FCE4EC {
+        class HybridStrategy {
+            - collaborativeWeight: Double
+            - contentWeight: Double
+            - ruleWeight: Double
+            - collaborativeStrategy: CollaborativeFilterStrategy
+            - contentStrategy: ContentFilterStrategy
+            - ruleEngine: RecommendRuleEngine
+            - fusionMethod: FusionMethod
+            - dynamicWeightAdjuster: DynamicWeightAdjuster
+
+            + recommend(userId: Long, context: RecommendContext): List<Recommendation>
+            + recommendWithScore(userId: Long, context: RecommendContext): List<ScoredRecommendation>
+            + getStrategyName(): String
+            + getStrategyType(): StrategyType
+            + isApplicable(context: RecommendContext): Boolean
+            + estimateQuality(userId: Long): QualityEstimate
+            - fuseResults(collaborativeResults: List, contentResults: List): List<ScoredRecommendation>
+            - applyBusinessRules(results: List): List<ScoredRecommendation>
+            - adjustWeights(context: RecommendContext): void
+            - rerankByDiversity(results: List): List<ScoredRecommendation>
+        }
+
+        class RecommendRuleEngine {
+            - rules: List<RecommendRule>
+            + applyRules(results: List, context: RecommendContext): List<ScoredRecommendation>
+            + addRule(rule: RecommendRule): void
+            + removeRule(ruleId: String): void
+        }
+
+        class RecommendRule {
+            - ruleId: String
+            - ruleName: String
+            - priority: Integer
+            - condition: RuleCondition
+            - action: RuleAction
+            + evaluate(context: RecommendContext): Boolean
+            + execute(results: List): List<ScoredRecommendation>
+        }
+
+        class DynamicWeightAdjuster {
+            - adjustInterval: Integer
+            - metricsCollector: MetricsCollector
+            + adjustWeights(context: RecommendContext): Weights
+            + evaluatePerformance(): PerformanceMetrics
+            + getOptimalWeights(): Weights
+        }
+
+        class Weights {
+            - collaborativeWeight: Double
+            - contentWeight: Double
+            - ruleWeight: Double
+            + normalize(): void
+            + toArray(): double[]
+        }
+
+        enum FusionMethod {
+            WEIGHTED_AVERAGE
+            RANK_FUSION
+            CASCADE
+            SWITCHING
+        }
+
+        HybridStrategy --> CollaborativeFilterStrategy
+        HybridStrategy --> ContentFilterStrategy
+        HybridStrategy --> RecommendRuleEngine
+        HybridStrategy --> DynamicWeightAdjuster
+        HybridStrategy --> FusionMethod
+        RecommendRuleEngine --> RecommendRule
+        DynamicWeightAdjuster ..> Weights
+        RecommendStrategy <|.. HybridStrategy
+    }
+
+    package "策略工厂与配置" #E0F7FA {
+        class StrategyFactory {
+            - strategyMap: Map<StrategyType, RecommendStrategy>
+            - {static} instance: StrategyFactory
+
+            + {static} getInstance(): StrategyFactory
+            + createStrategy(type: StrategyType): RecommendStrategy
+            + createStrategy(config: StrategyConfig): RecommendStrategy
+            + registerStrategy(type: StrategyType, strategy: RecommendStrategy): void
+            + getAvailableStrategies(): List<StrategyType>
+        }
+
+        class StrategyConfig {
+            - defaultStrategy: StrategyType
+            - collaborativeConfig: CollaborativeConfig
+            - contentConfig: ContentConfig
+            - hybridConfig: HybridConfig
+            - autoSwitchEnabled: Boolean
+            - qualityThreshold: Double
+            + getDefaultStrategy(): RecommendStrategy
+            + updateFromNacos(config: String): void
+        }
+
+        class CollaborativeConfig {
+            - similarityThreshold: Double
+            - neighborCount: Integer
+            - algorithm: SimilarityAlgorithm
+        }
+
+        class ContentConfig {
+            - featureDimension: Integer
+            - similarityMetric: ContentSimilarityMetric
+            - minSimilarityScore: Double
+        }
+
+        class HybridConfig {
+            - collaborativeWeight: Double
+            - contentWeight: Double
+            - fusionMethod: FusionMethod
+            - dynamicAdjustment: Boolean
+        }
+
+        StrategyFactory --> RecommendStrategy : 创建
+        StrategyFactory --> StrategyConfig
+        StrategyConfig --> CollaborativeConfig
+        StrategyConfig --> ContentConfig
+        StrategyConfig --> HybridConfig
+
+        RecommendContext --> StrategyFactory : 使用
+    }
+}
+
+note right of HybridStrategy
+  混合策略是推荐系统的默认策略，
+  融合协同过滤和内容过滤的优势，
+  并结合业务规则进行最终排序。
+  支持动态权重调整，根据数据
+  质量和系统负载自动优化配比。
+end note
+
+note left of RecommendContext
+  推荐上下文是策略模式的核心，
+  管理策略选择、切换和执行。
+  支持三种切换方式：
+  1. 配置文件静态切换
+  2. Nacos动态配置切换
+  3. 运行时质量自动切换
+end note
+
+@enduml

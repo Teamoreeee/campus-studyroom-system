@@ -1,0 +1,214 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0.36
+    container_name: campus-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: campus_studyroom
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./test/sql/mysql/campus_studyroom.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7.0.15
+    container_name: campus-redis
+    ports:
+      - "6380:6379"
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: campus-nacos
+    environment:
+      MODE: standalone
+      # 使用 Nacos 内置 Derby 数据库，避免依赖外部 MySQL
+      SPRING_DATASOURCE_PLATFORM: ""
+    ports:
+      - "8758:8848"
+      - "9848:9848"
+    networks:
+      - campus-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  campus-auth:
+    build:
+      context: .
+      dockerfile: backend/campus-auth/Dockerfile
+    container_name: campus-auth
+    ports:
+      - "8001:8001"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-user:
+    build:
+      context: .
+      dockerfile: backend/campus-user/Dockerfile
+    container_name: campus-user
+    ports:
+      - "8002:8002"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-room:
+    build:
+      context: .
+      dockerfile: backend/campus-room/Dockerfile
+    container_name: campus-room
+    ports:
+      - "8003:8003"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-reservation:
+    build:
+      context: .
+      dockerfile: backend/campus-reservation/Dockerfile
+    container_name: campus-reservation
+    ports:
+      - "8004:8004"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-attendance:
+    build:
+      context: .
+      dockerfile: backend/campus-attendance/Dockerfile
+    container_name: campus-attendance
+    ports:
+      - "8005:8005"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-ai:
+    build:
+      context: .
+      dockerfile: backend/campus-ai/Dockerfile
+    container_name: campus-ai
+    ports:
+      - "8006:8006"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+    networks:
+      - campus-network
+
+  campus-gateway:
+    build:
+      context: .
+      dockerfile: backend/campus-gateway/Dockerfile
+    container_name: campus-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      campus-auth:
+        condition: service_started
+      campus-user:
+        condition: service_started
+      campus-room:
+        condition: service_started
+      campus-reservation:
+        condition: service_started
+      campus-attendance:
+        condition: service_started
+      campus-ai:
+        condition: service_started
+    networks:
+      - campus-network
+
+  campus-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: campus-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - campus-gateway
+    networks:
+      - campus-network
+
+volumes:
+  mysql-data:
+
+networks:
+  campus-network:
+    driver: bridge

@@ -1,0 +1,70 @@
+graph TB
+    subgraph 外部调用层
+        A[前端Vue应用]
+        B[管理后台]
+    end
+
+    subgraph campus-ai服务[端口8006]
+        C[AIController<br/>REST API入口]
+        D[StudyRecommendationController<br/>学习环境推荐]
+
+        subgraph 智能推荐模块
+            E[CollaborativeFilterService<br/>协同过滤]
+            F[内容推荐引擎]
+            G[可用性过滤]
+            H[ZhipuAiService<br/>推荐理由生成]
+        end
+
+        subgraph RAG智能客服模块
+            I[RagService<br/>关键词+TF-IDF检索]
+            J[Prompt拼接引擎]
+            K[ZhipuAiService<br/>对话生成]
+            L[本地关键词匹配<br/>降级策略]
+        end
+
+        subgraph 考勤异常分析模块
+            M[规则引擎]
+            N[统计分析引擎]
+            O[风险评分模型]
+        end
+    end
+
+    subgraph 数据层
+        P[(MySQL数据库)]
+        P1[reservation表]
+        P2[study_room表]
+        P3[study_seat表]
+        P4[knowledge_base表]
+        P5[ai_recommendation表]
+    end
+
+    subgraph 外部AI服务
+        Q[智谱AI GLM-4<br/>open.bigmodel.cn]
+    end
+
+    A --> C
+    B --> C
+    A --> D
+    C --> E
+    C --> F
+    C --> I
+    C --> J
+    C --> K
+    C --> M
+    E --> G
+    G --> H
+    F --> G
+    J --> K
+    K -.API不可用.-> L
+    E --> P1
+    F --> P1
+    I --> P4
+    M --> P1
+    N --> P1
+    H --> Q
+    K --> Q
+    P1 --> P
+    P2 --> P
+    P3 --> P
+    P4 --> P
+    P5 --> P

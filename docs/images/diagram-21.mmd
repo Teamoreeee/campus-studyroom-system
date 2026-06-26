@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph 外部访问
+        U[用户浏览器/APP]
+    end
+
+    subgraph Docker Compose 单机部署
+        direction TB
+        F[campus-frontend<br/>nginx:alpine<br/>端口 80]
+        G[campus-gateway<br/>JRE17<br/>端口 8000]
+        
+        subgraph 业务微服务
+            A[campus-auth<br/>端口 8001]
+            U2[campus-user<br/>端口 8002]
+            R[campus-room<br/>端口 8003]
+            RE[campus-reservation<br/>端口 8004]
+            AT[campus-attendance<br/>端口 8005]
+            AI[campus-ai<br/>端口 8006]
+        end
+        
+        subgraph 基础设施
+            M[campus-mysql<br/>mysql:8.0.36<br/>端口 3307]
+            RD[campus-redis<br/>redis:7.0.15<br/>端口 6380]
+            N[campus-nacos<br/>nacos:v2.3.0<br/>端口 8758]
+        end
+    end
+    
+    U -->|HTTP 80| F
+    F -->|/api/*| G
+    G -->|lb://campus-auth| A
+    G -->|lb://campus-user| U2
+    G -->|lb://campus-room| R
+    G -->|lb://campus-reservation| RE
+    G -->|lb://campus-attendance| AT
+    G -->|lb://campus-ai| AI
+    A & U2 & R & RE & AT & AI -->|注册&发现| N
+    A & U2 & R & RE & AT & AI -->|JDBC 3306| M
+    A & U2 & R & RE & AT & AI -->|Redis 6379| RD

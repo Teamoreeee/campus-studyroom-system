@@ -1,0 +1,50 @@
+flowchart LR
+    subgraph Actors["参与者"]
+        Student["学生用户"]
+        Admin["教务管理员"]
+    end
+
+    subgraph System["校园自习室预约系统"]
+        UC1["UC1: 用户登录<br/>获取 JWT Token"]
+        UC2["UC2: 查询自习室<br/>与座位状态"]
+        UC3["UC3: 提交预约请求"]
+        UC4["UC4: 服务层<br/>冲突检测"]
+        UC5["UC5: 写入数据库<br/>并返回结果"]
+        UC6["UC6: 扫码签到"]
+        UC7["UC7: 扫码签退"]
+        UC8["UC8: 查看考勤统计"]
+        UC9["UC9: 管理自习室信息"]
+        UC10["UC10: 查看预约数据报表"]
+        UC11["UC11: 获取智能推荐"]
+        UC12["UC12: 咨询智能客服"]
+    end
+
+    Student --> UC1
+    Student --> UC2
+    Student --> UC3
+    Student --> UC6
+    Student --> UC7
+    Student --> UC8
+    Student --> UC11
+    Student --> UC12
+
+    UC1 --> UC2
+    UC2 --> UC3
+    UC3 --> UC4
+    UC4 --> UC5
+    UC5 --> UC6
+    UC6 --> UC7
+    UC7 --> UC8
+
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC2
+
+    style UC1 fill:#e1f5fe
+    style UC2 fill:#e1f5fe
+    style UC3 fill:#e1f5fe
+    style UC4 fill:#fff3e0
+    style UC5 fill:#fff3e0
+    style UC6 fill:#e8f5e9
+    style UC7 fill:#e8f5e9
+    style UC8 fill:#e8f5e9

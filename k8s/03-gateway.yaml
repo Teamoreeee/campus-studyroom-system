@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campus-gateway
+  namespace: campus-studyroom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: campus-gateway
+  template:
+    metadata:
+      labels:
+        app: campus-gateway
+    spec:
+      containers:
+        - name: campus-gateway
+          image: campus-studyroom/campus-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: campus-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: campus-gateway
+  namespace: campus-studyroom
+spec:
+  selector:
+    app: campus-gateway
+  ports:
+    - port: 8000
+      targetPort: 8000
+      nodePort: 30080
+  type: NodePort

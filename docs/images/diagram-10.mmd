@@ -1,0 +1,56 @@
+flowchart TB
+    subgraph DockerHost["Docker Host (开发/测试环境)"]
+        subgraph Network["campus-network (bridge)"]
+            MySQL["campus-mysql<br/>MySQL 8.0.36<br/>端口: 3306<br/>数据: 命名卷持久化"]
+            Redis["campus-redis<br/>Redis 7.0.15<br/>端口: 6379"]
+            Nacos["campus-nacos<br/>Nacos 2.3.0<br/>端口: 8848"]
+
+            Auth["campus-auth<br/>端口: 8001<br/>认证服务"]
+            User["campus-user<br/>端口: 8002<br/>用户服务"]
+            Room["campus-room<br/>端口: 8003<br/>自习室服务"]
+            Res["campus-reservation<br/>端口: 8004<br/>预约服务"]
+            Att["campus-attendance<br/>端口: 8005<br/>考勤服务"]
+            AI["campus-ai<br/>端口: 8006<br/>AI服务"]
+
+            GW["campus-gateway<br/>端口: 8000<br/>API网关"]
+            FE["campus-frontend<br/>端口: 80<br/>Nginx静态资源"]
+        end
+    end
+
+    UserBrowser["用户浏览器"]
+    AdminBrowser["管理员浏览器"]
+
+    UserBrowser --> FE
+    AdminBrowser --> FE
+    FE --> GW
+    GW --> Auth
+    GW --> User
+    GW --> Room
+    GW --> Res
+    GW --> Att
+    GW --> AI
+
+    Auth --> MySQL
+    Auth --> Redis
+    User --> MySQL
+    Room --> MySQL
+    Room --> Redis
+    Res --> MySQL
+    Res --> Redis
+    Att --> MySQL
+    AI --> MySQL
+    AI --> Redis
+
+    Auth --> Nacos
+    User --> Nacos
+    Room --> Nacos
+    Res --> Nacos
+    Att --> Nacos
+    AI --> Nacos
+    GW --> Nacos
+
+    style MySQL fill:#e3f2fd
+    style Redis fill:#e8f5e9
+    style Nacos fill:#fff3e0
+    style GW fill:#fce4ec
+    style FE fill:#f3e5f5
