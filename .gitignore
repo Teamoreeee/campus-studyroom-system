@@ -103,3 +103,12 @@ ontinuous.txt
 评分标准.txt
 test/postman/conversation2.txt
 *conversation*.txt
+
+# Microsoft Office temp files
+~$*.docx
+~$*.pptx
+~$*.xlsx
+
+# Course grading / grouping deliverables (not project code)
+docs/项目评分报告.docx
+docs/团队分工表.docx
