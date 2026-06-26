@@ -93,3 +93,9 @@ desktop.ini
 **/application-local.yml
 **/application-local.yaml
 **/application-local.properties
+
+# Claude Code local config and conversation transcripts
+.claude/
+2026-*.txt
+*-token-*.txt
+*continued-from*.txt
